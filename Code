@@ -1,0 +1,135 @@
+---
+title: "Final-project-CDSA1010-grp3"
+author: "Lily Ye"
+date: "05/05/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+```{r}
+#Importing data
+
+library(dplyr)
+library(factoextra)
+library(purrr)
+library(cluster)
+
+entiredata <- read.csv(file = "diabetic_data.csv", stringsAsFactors = FALSE)
+str(entiredata)
+```
+
+```{r}
+#Taking out all missing values
+NoMissingValues<-entiredata[!(entiredata$race=="?" | entiredata$gender=="Unknown/Invalid" | entiredata$admission_type_id==5 | entiredata$admission_type_id==6 | entiredata$admission_type_id==8 | entiredata$discharge_disposition_id==18 | entiredata$discharge_disposition_id==25 | entiredata$discharge_disposition_id==26 | entiredata$admission_source_id==9 | entiredata$admission_source_id==17 | entiredata$admission_source_id==20 | entiredata$medical_specialty=="?"),]
+
+#This leaves 43,418 rows from 101,766 rows (might not be the ideal method of dealing with missing values)
+
+#Taking out weight column as it has +95% missing values
+RefinedData<-select(NoMissingValues, -weight)
+
+#Taking out payer_code column as it is not relevant
+Refined_Diabetes_Data<-select(RefinedData, -payer_code)
+
+#Applying columns as factors
+
+cols<-c("race","gender","age","admission_type_id","admission_source_id","discharge_disposition_id","medical_specialty","diag_1","diag_2","diag_3","max_glu_serum","A1Cresult","metformin","repaglinide","nateglinide","chlorpropamide","glimepiride","acetohexamide","glipizide","glyburide","tolbutamide","pioglitazone","rosiglitazone","acarbose","miglitol","troglitazone","tolazamide","examide","citoglipton","insulin","glyburide.metformin","glipizide.metformin","glimepiride.pioglitazone","metformin.rosiglitazone","metformin.pioglitazone","change","diabetesMed","readmitted")
+
+for (i in cols){
+  Refined_Diabetes_Data[,i] <- as.factor(Refined_Diabetes_Data[,i])
+}
+
+str(Refined_Diabetes_Data)
+```
+
+```{r}
+#First poke at clustering
+
+#Normalizing the dataset
+reordered_column <- Refined_Diabetes_Data[, c(1,2,3,4,5,6,7,8,10,9,11,12,13,14,15,16,20,17,18,19,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48)]
+
+#Scaled Datasets
+Scaled_Data <- as.data.frame(scale(reordered_column[10:17]))
+Scaled_Data_std <- scale(reordered_column[10:17])
+
+#Elbow method
+
+## 1
+set.seed(123)
+
+## 1-function to compute total within-cluster sum of square 
+wss <- function(k) {
+  kmeans(Scaled_Data, k, nstart = 30 )$tot.withinss
+}
+
+## 1-Compute and plot wss for k = 1 to k = 8?
+k.values <- 1:8
+
+## 1-extract wss for 2-8? clusters
+wss_values <- map_dbl(k.values, wss)
+
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+
+## 2
+wss <- (nrow(Scaled_Data)-1)*sum(apply(Scaled_Data,2,var))
+  for (i in 2:8) wss[i] <- sum(kmeans(Scaled_Data,
+                                       centers=i)$withinss)
+plot(1:8, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+
+## 3
+
+tot_withinss <- map_dbl(1:8,  function(k){
+  model <- kmeans(x = lineup, centers = k)
+  model$tot.withinss
+})
+
+## Generate a data frame containing both k and tot_withinss
+elbow_df <- data.frame(
+  k = 1:8,
+  tot_withinss = tot_withinss
+)
+
+#K-Means Clustering
+
+## 1
+fit <- kmeans(Scaled_Data, 7) # 7 cluster solution
+## 1-get cluster means
+aggregate(Scaled_Data,by=list(fit$cluster),FUN=mean)
+## 1-append cluster assignment
+Scaled_Data_kmeans <- data.frame(Scaled_Data, fit$cluster)
+
+## 2
+set.seed(420)
+clusters_num = 7
+k.means.fit <- kmeans(Scaled_Data_std, clusters_num,iter.max = 1000)
+
+clusplot(Scaled_Data_std, k.means.fit$cluster, main='',
+color=TRUE, shade=FALSE,
+labels=clusters_num, lines=0)
+
+centers <- table(Refined_Diabetes_Data[,48],k.means.fit$cluster)
+
+#Hierarchical clustering
+
+## 1
+## Compute dissimilarity matrix with euclidean distances
+d <- dist(Scaled_Data, method = "euclidean")
+## Hierarchical clustering using Ward's method
+res.hc <- hclust(d, method = "ward.D2" )
+## Cut tree into 5 groups
+grp <- cutree(res.hc, k = 7)
+## Visualize
+plot(res.hc, cex = 0.6) # plot tree
+rect.hclust(res.hc, k = 7, border = 2:5) # add rectangle
+## Execution of k-means with k=7
+final <- kmeans(Scaled_Data, 7, nstart = 30)
+fviz_cluster(final, data = Scaled_Data) + theme_minimal() + ggtitle("k = 7")
+```

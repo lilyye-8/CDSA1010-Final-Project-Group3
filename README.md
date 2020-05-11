@@ -4,4 +4,4 @@ Included in the Github repository
 
 * R Markdown file
 * PDF file
-* shiny R file
+* Shinyapp deployment R file

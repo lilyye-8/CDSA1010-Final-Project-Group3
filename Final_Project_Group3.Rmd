@@ -1,0 +1,1973 @@
+---
+title: "CDSA1010 Final Project, Section 4, Group 3"
+author: "Yrysguli Kaireden, Amina Sheik-Ahmed, Lily Ye"
+date: "10/05/2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#All library packages used
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(Hmisc)
+library(corrplot)
+library(RColorBrewer)
+library(ROCR)
+library(Metrics)
+library(class)
+library(caret)
+library(factoextra)
+library(data.table)
+library(cluster)
+library(tidyverse)
+library(NbClust)
+library(fpc)
+library(cowplot)
+library(ClusterR)
+library(ROSE)
+require(gridExtra)
+```
+
+**Abstract:** In this assignment, the dataset is a user data from an e-commerce website with feature vectors for 12,330 individual online sessions. The goal of this assignment is to develop a model that can effectively predict a shopper's purchasing intention to finalize a transaction. The data is carefully explored, adjusted and transformed prior to model deployment. The methods used to explore the feasibility of such prediction are clustering and classification models, in which Logistic Regression, Decision Tree, Random Forest, k-NN,  PCA, K-means clustering, PAM and Hierarchical clustering are used. It is important to note that clustering models added the extra feature in researching the user base. Next, the prediction models were evaluated using precision,  recall, overall accuracy, balanced accuracy, specificity, F1 and AUC while internal and external validations were conducted on clustering models. The models generated from this dataset and project can be deployed to be used by e-commerce businesses to 1) improve the prediction of their website’s likelihood in yielding a purchase and 2) improve website metrics.
+
+# Introduction
+
+Online shopping in Canada alone generated 39.9 billion dollars in 2019, this value is twice what Canadians spent on online shopping in 2014 (Sheldon et al., 2014).  It is no surprise that online shopping is the leading online activity across the world. Given this massive opening in the online market especially in recent years, many businesses have made the shift to move their business online. This shift is attributed to website visitor's preference in making purchases online as this experience  is more convenient than frequenting physical stores. This shift in website visitor behaviour is excellent for online businesses as this generates user-data which can be used in e-commerce to better understand their users and therefore make better strategic decisions that drive the business to cater to user’s wants. Furthermore, e-commerce businesses can use this data to reduce costs, create cost-effective ways to sell their products and services, and most importantly improve user experience. While online shopping has allowed  businesses to gain insight from user data to improve operational strategies, it is best that businesses employ early detection and behavioural prediction systems that mimic the behaviour of virtual sales-person so as to improve conversion rates (Sakar et al., 2019).
+
+## Background
+
+The dataset used in this assignment was retrieved from UCI Machine Learning Repository. The data was collected from an online store in which metrics were measured by Google Analytics for each page visited in the e-commerce site. The data consists of feature vectors for 12,330 online sessions in which each session is specific to a user in a one-year period (Sakar et al., 2019). The features in this dataset are numerical and categorical which are used for the purchasing intention prediction. This dataset contains 10 numerical and 8 categorical attributes; these features will be further defined in the later data understanding section as per the description in Sakar et al., 2019 reference paper.
+
+## Objective
+
+The objective of this study is to provide a classification algorithm that can effectively predict the users’ purchasing intentions in real time, and also to provide a clustering algorithm that conducts an in-depth research into the online users’ behaviours and trends. The target variable “Revenue” is binary and coded as ‘TRUE’ or “FALSE’, and this value pertains to the users’ intention to finalize a transaction. The predictive models that will be deployed are Logistic regression, Random Forest, Decision Tree, and k-NN;  while clustering models deployed are K-means, PAM and Hierarchical Clustering.  Next, the prediction models were evaluated using precision,  recall, overall accuracy, balanced accuracy, specificity, F1 and AUC while the clustering models were evaluated using the Silhouette method and Rand Index. 
+
+In the next sections outliers are identified; following this, features transformation and selection steps are described to demonstrate how the final set of features were formed. The final dataset is then passed to predictive models and clustering models in which the best performing model is selected based on the set of  evaluation metrics.
+
+## Business & Analytical Problem Framing
+
+The dataset entails great information and insight on a number of factors, such as the number of web pages visited by users, browser or computer operating system used by site-visitors, and the month of the year when transactions took place. With this information, the ultimate business goal is to determine whether the website visitors will make a purchase, and also to better understand the website visitors base through research.
+
+Therefore, in the context of online shoppers dataset, the following business problem statement is formulated: how can e-commerce business owners increase their revenue from the purchases made in their shopping website?
+
+Then, from this business question, there would be the following analytical questions:
+
+1. which machine learning models can best predict the purchase status?
+2. what are the most important factors that influence the users likelihood of making a purchase, and
+3. how are different features represented across the clusters of site-visitors?
+
+This project will solve these analytical questions through classification (predictive) and clustering models. Then, the insights gleaned from the models and the analytical questions will provide a set of recommendations that can help address the business problem.
+
+# Data
+
+## Data Understanding
+
+The dataset contains 12,330 observations and 18 variables.
+
+```{r, echo=FALSE}
+#Data read
+datadump <- read.csv('online_shoppers_intention.csv',stringsAsFactors = FALSE)
+str(datadump)
+```
+
+The first 10 columns of this dataset contain the numerical features used in the users behaviour analysis. The 'Administrative' column  entails the number of pages visited by the user regarding their account management. Following, the 'Administration duration' column  denotes the amount of time spent in seconds by the user exploring account management related pages. The 'Informational’ column  represents the number of pages visited by the user pertaining to website, communication and address information. The 'Informational duration' column shows the total amount spent by the user in seconds on informational pages. Next, the 'ProductRelated' column demonstrates the number of pages visited by visitors about product related pages. The total amount of time (in seconds) spent by the visitor on product related pages is represented by the 'ProductRelated duration' column. The 'Bounce rate' is measured by Google Analytics to show the average rate in which visitors enter a page and leave without visiting another page in the same website (Google Analytics, 2020a). 
+
+The 'Exit rate' column is also measured by Google analytics and shows the percentage of pages viewed compared to the page that was in the last session before exiting (Google Analytics, 2020b). Following, The 'Page value' column, which is measured by Google Analytics represents the average value of the pages visited by the visitor before completing a purchase. Lastly, the 'Special day' column  shows the closeness of the user's visiting time to a special day such as Christmas, Mother's day in which a visit is finalized to a purchase. The numerical value in this column is measured by operational dynamics of the online business, such as the time between when the order is placed and received. These values have a minimum value of “0” and max value of “1”, wherein “0”  represents before and after the special day and non-zero values are assigned to dates very close to the special day. 
+
+Columns 11 - 18 contain the categorical features used in the users’ behaviour analysis. The ‘Operating Systems’ column denotes the operating system used by the visitor. Next, the ‘Browser’ column describes the browser type utilized. The ‘Region’ consists of the geographic regions in which the website visit originates. Following, the ‘Traffic Type’ column indicates the traffic source that leads the user to the website (text, advertisement, direct). The ‘Visitor Type’ column labels users as either a ‘New Visitor’, a ‘Returning Visitor’, or ‘Other’. The ‘Weekend’ column consists of "TRUE" or "False" values indicating whether or not the website was visited during a weekend. Following, the ‘Month’ column indicates the month in which a user visits the website. 
+
+The last column is the target variable ‘Revenue’, indicating whether the website visit was finalized with a transaction, where TRUE means the visit yielded a transaction and FALSE means the visit did not result in a transaction.
+
+## Data Exploration
+
+### Correlation and Relationship of the Variables
+
+Looking closely at the target variable, it is visible that there is a disportionately large incident of  "FALSE" (10,422 incidents) compared to "TRUE" (1,908), wherein "FALSE" means the visit did not yield a transaction and "TRUE" means the visit yielded a transaction. 
+
+Furthermore, the table and graph below shows the exact percentage and count distribution of the target variable.
+
+```{r, echo=FALSE}
+#Take a look at the target variable distribution
+prop.table(table(datadump$Revenue))
+library(ggplot2)
+ggplot(data = datadump, mapping = aes(x = Revenue, fill = Revenue)) +
+  geom_bar() +
+  stat_count(aes(label = ..count..), geom = "label")
+```
+
+There is an 85% “FALSE” output and a 15% “TRUE” output; this demonstrates that the data is severely unbalanced and will be further discussed when splitting the dataset into test and train. 
+
+Next, specific features will be discussed in detail.
+
+### Relationship between Administrative and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Administrative and Revenue
+ggplot(data = datadump,aes(x=Administrative,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+Starting with the Administrative attribute, the correlation trend in this graph demonstrates that the users, who visit many pages regarding account management, are more likely to make a purchase than the users who visit less pages regarding account management. This sounds logical, since a frequent page visit to the account management or account setup is indicative of a user who is interested in making a purchase.
+
+### Relationship between Administrative and Revenue with respect to Weekend
+
+```{r, echo=FALSE}
+#Relationship between Administrative and Revenue with respect to Weekend
+ggplot(data = datadump,aes(x=Administrative,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")+facet_wrap(datadump$Weekend)
+```
+
+This graph looks at the correlation between the number of pages visited by the user related to account-management and Revenue with respect to the weekend. It appears that users are likely to finalize a purchase the more account management related pages they visit. Furthermore, these finalized purchases are more likely to occur during the week rather than the weekend.
+
+### Relationship between Informational and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Informational and Revenue
+ggplot(data = datadump,aes(x=Informational,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+The correlation trend between the Informational attribute and Revenue suggests that users that frequently visit pages about the company's information, such as address, are likely to finalize a transaction.
+
+### Relationship between Informational and Revenue with respect to Region
+
+```{r, echo=FALSE}
+#Relationship between Informational and Revenue with respect to Region
+ggplot(data = datadump,aes(x=Informational,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")+facet_wrap(datadump$Region)
+```
+
+These graphs demonstrate the correlation of the number of pages users visit related to the company's information and the target variable (Revenue) with respect to Region. The numerical values of these regions were not defined in the reference article (Sakar et al., 2019). It appears that the more Informational pages users visit, the greater the likelihood of the user finalizing a transaction. Furthermore, the different regions have varying shopping patterns, with regions 3, 7 and 9 having most purchases.
+
+### Relationship between ProductRelated and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Product Related and Revenue
+ggplot(data = datadump,aes(x=ProductRelated,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+Looking at the Product Related attribute against the target variable, it can be concluded that users that visit more Product Related pages are likely to finalize a purchase.
+
+### Relationship between ProductRelated and Revenue with respect to Special Day
+
+```{r, echo=FALSE}
+#Relationship between ProductRelated and Revenue with respect to Special Day
+ggplot(data = datadump,aes(x=ProductRelated,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")+facet_wrap(datadump$SpecialDay)
+```
+
+Visitors are more likely to finalize a purchase when they explore more Product Related pages, this correlation seems to be the strongest during regular days (far before or after holidays); this is represented in the graph with value "0".
+
+### Relationship between Special day and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Special Day and Revenue
+ggplot(data = datadump,aes(x=SpecialDay,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+The correlation between the Special day and the target variable is negative. Note that a “0” value is assigned to dates visited well before or after the Special day, and non-zero values are assigned to the dates visited closest to the Special day, wherein 1 would mean the user visited on a date very close to the Special day.  From this graph, one may infer the e-commerce website was visited the most on dates well before or after the Special day (regular days of the year). Also, the portion of the users visiting during this time frame that did make a purchase, are greater than the portion of users making purchases closer to the Special day. This might be explained by people taking into account delivery time and purchasing so that an item arrives exactly on that Special day.
+
+### Relationship between Month and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Month and Revenue
+ggplot(data = datadump,aes(x=Month,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+Looking at the month attribute, it appears that users visit the during or a slightly before high peak months more than the holidays and important official dates (i.e., back to school) and thereby make a purchase during these time frames. It looks like visitors tend to purchase during Early Bird Specials before holidays and Clearance after holidays effective.
+
+### Relationship between Operating Systems and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Operating Systems and Revenue
+ggplot(data = datadump,aes(x=OperatingSystems,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+It appears that visitors using Operating System "8" have a slightly higher likelihood of finalizing a purchase. There isn't a significant difference in purchasing behaviour and the remaining operating systems. There are 8 different operating systems, however these systems were not defined in the reference article (Sakar et al., 2018).
+
+### Relationship between Browser and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Browser and Revenue
+ggplot(data = datadump,aes(x=Browser,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+The plot between the user's Browser type and the target variable shows the Browser type '12' yields the most transactions. There are 13 different Browser types; however, Browser types were not defined in the reference article (Sakar et at., 2019).
+
+### Relationship between Region and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Region and Revenue
+ggplot(data = datadump,aes(x=Region,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+Users visiting from different geographic regions appear to show similar shopping behaviour. There are 9 different regions; however they were not defined in the reference article (Sakar et al., 2019).
+
+### Relationship between Traffic Type and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Traffic Type and Revenue
+ggplot(data = datadump,aes(x=TrafficType,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+Specific traffic sources by which the visitor arrives from to the website yield different shopping behaviours. It seems that Traffic type 16 yields the most buyers. There are 20 traffic sources in the dataset; however they are not defined in the reference paper (Sakar et al., 2019).
+
+### Relationship between Visitor Type and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Visitor Type and Revenue
+ggplot(data = datadump,aes(x=VisitorType,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+New visitors compared to Other and Returning visitors are more likely to finalize a transaction. This could be due to discounts on first order that is usually offered by online stores.
+
+### Relationship between Weekend and Revenue
+
+```{r, echo=FALSE}
+#Relationship between Weekend and Revenue
+ggplot(data = datadump,aes(x=Weekend,fill=Revenue))+geom_bar(position="fill")+ylab("Frequency")
+```
+
+The Weekend column consists of "TRUE" or "False" values indicating whether or not the website was visited during a weekend. Although very close, the user visits that occur during the weekend (TRUE) are more likely to result in a transaction.
+
+### Correlation of features with each other
+
+```{r, echo=FALSE}
+#Encoding
+datadump$Weekend[datadump$Weekend == "TRUE"] = 1
+datadump$Weekend[datadump$Weekend == "FALSE"] = 0
+datadump$Revenue[datadump$Revenue == "TRUE"] = 1
+datadump$Revenue[datadump$Revenue == "FALSE"] = 0
+datadump$VisitorType[datadump$VisitorType == "Other"] = 0
+datadump$VisitorType[datadump$VisitorType == "Returning_Visitor"] = 1
+datadump$VisitorType[datadump$VisitorType == "New_Visitor"] = 2
+datadump$Month[datadump$Month == "Feb"] = 1
+datadump$Month[datadump$Month == "Mar"] = 2
+datadump$Month[datadump$Month == "May"] = 3
+datadump$Month[datadump$Month == "June"] = 4
+datadump$Month[datadump$Month == "Jul"] = 5
+datadump$Month[datadump$Month == "Aug"] = 6
+datadump$Month[datadump$Month == "Sep"] = 7
+datadump$Month[datadump$Month == "Oct"] = 8
+datadump$Month[datadump$Month == "Nov"] = 9
+datadump$Month[datadump$Month == "Dec"] = 10
+
+#Change datatypes of particular columns to factor
+apply(datadump,2, function(x) length(unique(x)))
+cols<-c("Month","OperatingSystems","Browser","Region","TrafficType","VisitorType","Weekend","Revenue")
+for (i in cols){
+  datadump[,i] <- as.factor(datadump[,i])
+}
+#Correlation of features with each other
+df2 = as.matrix(as.data.frame(lapply(datadump, as.numeric)))
+M <-cor(df2)
+library(corrplot)
+corrplot(M, method="circle")
+```
+
+This graph depicts a strong correlation between Bounce rates and Exit rates. It is important to note that the Bounce rate is the average rate in which visitors enter a page and leave without visiting another page, while The Exit rate is the percentage of pages viewed compared to the page that was in the last session before exiting (Google Analytics, 2020b). Given that both features calculate the percentage of visitors that leave a page after entering it, this correlation is viable. 
+
+Positive correlations are observed between the Administrative and Administrative duration attributes. This correlation suggests that number pages users visit for account management is correlated to the time spent on account management pages. Specifically if a user visits fewer pages for account management purposes they are also spending a short amount of time on such pages. 
+
+Also, a positive correlation is observed between the Informational and Informational duration attributes. This suggests that the number of pages users visit for the communication and address information of the shopping or service site is correlated with the total time the user spends on the aforementioned pages.
+
+The feature with the strongest correlation to the target variable is Page value. This feature is defined as the average value of the pages visited by the user before completing a purchase, in which the page value is defined by the following equation:
+
+$$\frac{ECommerce Revenue + Total Goal Value}{Unique Pageviews for Given Page}$$
+(Google Analytics, 2020c)
+
+Total Goal Value is defined as the dollar amount assigned to the completion of goal in Google Analytics (Koks, 2000).
+
+From this equation, the Page value can be increased in two ways. Either the Total Goal Value increases in value or there must be a Unique Pageview for a given page. Ideally, it is best to have a small divisor, with the pageviews for a given page at 1. Smaller pageviews value can be accomplished if fewer pages are visited before arriving at the transaction or goal page. A high Page value is indicative that a user will make a purchase and this will ultimately increase business revenue.
+
+## Feature Selection
+
+```{r, echo=FALSE}
+ggplot(data=as.data.frame(M), aes(x=reorder(rownames(M), -Revenue), y=Revenue)) +
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+In this section, important features were selected using correlation values. 
+
+The cor() function was used to obtain correlation values. Features containing a very weak correlation strength value falling below 0.02 and -0.02 were detected. It was decided that features falling below a correlation value 0.02 and 0.02 will not be included in the final data set. 
+
+In sum, the following were used in the prediction models: Page Values, Month, Product-related, Produce-related duration, Administrative, Visitor type, Informational, Administrative Duration, Informational Duration, Weekend, Browser, Special Day, Bounce Rates and Exit Rates.
+
+## Data preparation
+
+The dataset was checked for missing values and outliers.
+
+```{r}
+colSums(is.na(datadump))
+colSums(datadump=="")
+
+#Indetifying Outliers in numeric columns using IQR
+num_cols<-
+  c("Administrative","Administrative_Duration","Informational",
+    "Informational_Duration","ProductRelated","ProductRelated_Duration",
+    "BounceRates","ExitRates","PageValues","SpecialDay")
+num_outliers<-
+  data.frame("Q1"=numeric(10),"Q3"=numeric(10),"IQR"=numeric(10),
+             "UL"=numeric(10),"LL"=numeric(10),"Count"=numeric(10))
+rownames(num_outliers)=num_cols
+
+for (i in 1:dim(num_outliers)[1]){
+  num_outliers[i,"Q1"] = quantile(datadump[,num_cols[i]], 0.25, na.rm=TRUE)
+  num_outliers[i,"Q3"] = quantile(datadump[,num_cols[i]], 0.75, na.rm=TRUE)
+  num_outliers[i,"IQR"] = IQR(datadump[,num_cols[i]],na.rm=TRUE)
+  num_outliers[i,"UL"] = num_outliers[i,"Q3"]+1.5*num_outliers[i,"IQR"]
+  num_outliers[i,"LL"] = num_outliers[i,"Q1"]-1.5*num_outliers[i,"IQR"]
+  num_outliers[i,"Count"] = length(datadump[,num_cols[i]]
+                                   [datadump[,num_cols[i]]>=
+                                       num_outliers[i,"UL"] | datadump[,num_cols[i]]<=
+                                       num_outliers[i,"LL"]])
+}
+```
+
+While it had no missing values, the dataset had outliers that made up at least 10% of the total dataset. Due to the significant portion of outliers in our total dataset, they were not excluded.
+
+Then, distribution was observed for all numeric columns, as shown in the below 10 histograms.
+
+```{r, echo=FALSE}
+data_classif<-datadump[, -c(12,14,15)]
+
+require(gridExtra)
+plot1 <-ggplot(data_classif, aes(x=Administrative))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot2 <-ggplot(data_classif, aes(x=Administrative_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot3 <-ggplot(data_classif, aes(x=Informational))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot4 <-ggplot(data_classif, aes(x=Informational_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot5 <-ggplot(data_classif, aes(x=ProductRelated))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot6 <-ggplot(data_classif, aes(x=ProductRelated_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot7 <-ggplot(data_classif, aes(x=BounceRates))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot8 <-ggplot(data_classif, aes(x=ExitRates))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot9 <-ggplot(data_classif, aes(x=PageValues))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot10 <-ggplot(data_classif, aes(x=SpecialDay))+
+  geom_histogram(color="darkblue", fill="lightblue")
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, ncol=5)
+```
+
+All of the above histograms show an extreme positive skewness. Therefore, they were transformed through a log application, which normalized the distribution, as shown in the 10 histograms below.
+
+```{r, echo=FALSE}
+data_classif$Administrative=log(as.numeric(data_classif$Administrative)+1)
+data_classif$Administrative_Duration=log(as.numeric(data_classif$Administrative_Duration)+1)
+data_classif$Informational=log(as.numeric(data_classif$Informational)+1)
+data_classif$Informational_Duration=log(as.numeric(data_classif$Informational_Duration)+1)
+data_classif$ProductRelated=log(as.numeric(data_classif$ProductRelated)+1)
+data_classif$ProductRelated_Duration=log(as.numeric(data_classif$ProductRelated_Duration)+1)
+data_classif$BounceRates=log(as.numeric(data_classif$BounceRates)+1)
+data_classif$ExitRates=log(as.numeric(data_classif$ExitRates)+1)
+data_classif$PageValues=log(as.numeric(data_classif$PageValues)+1)
+data_classif$SpecialDay=log(as.numeric(data_classif$SpecialDay)+1)
+
+#Double-checking distributions of transformed numeric values
+plot1 <-ggplot(data_classif, aes(x=Administrative))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot2 <-ggplot(data_classif, aes(x=Administrative_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot3 <-ggplot(data_classif, aes(x=Informational))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot4 <-ggplot(data_classif, aes(x=Informational_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot5 <-ggplot(data_classif, aes(x=ProductRelated))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot6 <-ggplot(data_classif, aes(x=ProductRelated_Duration))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot7 <-ggplot(data_classif, aes(x=BounceRates))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot8 <-ggplot(data_classif, aes(x=ExitRates))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot9 <-ggplot(data_classif, aes(x=PageValues))+
+  geom_histogram(color="darkblue", fill="lightblue")
+plot10 <-ggplot(data_classif, aes(x=SpecialDay))+
+  geom_histogram(color="darkblue", fill="lightblue")
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, ncol=5)
+#Values now very close to normal with some values concentrated on the left tail sometimes
+```
+
+# Models
+
+## Predictive Model Development and Evaluation
+
+‘ROSE’ R package library was used to address the unbalanced data, since it creates balanced synthetic data samples through oversampling, which is accomplished by enlarging the features space of minority and majority class examples (R Documentation, n.d.-b). Operationally, the new examples are drawn from a conditional kernel density estimate of the two classes, as described in Menardi and Torelli, 2013.
+
+The dataset was split into 3 subsets for predictive modeling: train, validate, and test. In addition to ‘ROSE’ R package, createDataPartition function was also used to address the unbalanced data and to ensure that the target variable is equally and consistently represented in all three data subsets (the 3 tables below show that the target variable 0's and 1's are equally and consistently represented in the train, validate, and test datasets, respectively).
+
+```{r, echo=FALSE}
+library(ROSE)
+library(caret)
+data_classif_rose<-ROSE(Revenue ~ ., data = data_classif, seed = 1)$data
+
+set.seed(1992)
+
+firstcut = createDataPartition(data_classif_rose$Revenue, p = 0.9, list=FALSE)
+bigtrain_d = data_classif_rose[firstcut,]
+test_d = data_classif_rose[-firstcut,]
+secondcut=createDataPartition(bigtrain_d$Revenue, p = 0.9, list=FALSE)
+train_d=bigtrain_d[secondcut,]
+val_d=bigtrain_d[-secondcut,]
+
+#Double-checking that proportions are equal in each dataset
+prop.table(table(bigtrain_d$Revenue))
+prop.table(table(train_d$Revenue))
+prop.table(table(test_d$Revenue))
+```
+
+First, Logistic Regression was used to predict online site-visitors’ purchase status. It is a machine learning algorithm that models the probabilities for a classification problem by giving two probable outcomes (Molnar, 202). LRM is a continuation of the Linear Regression Model as it takes classification problems one step further (Molnar, 2020) When compared to other models, this model can be quite advantageous as it provides probilities and can determine the final classification. LRM are not without disadvantage as they perform poorly against other models when predicting performance. Also, LRM poses the challenge of being unable to further train in the event where there is a feature that could separate two classes (Molnar, 2020).
+
+```{r, echo=FALSE}
+library(ROCR)
+library(Metrics)
+
+#metrics in one table
+metrics<-data.frame("LogisticRegression"=numeric(7),"DecisionTree"=numeric(7),"RandomForest"=numeric(7),"KNN"=numeric(7))
+rownames(metrics)<-c("Precision","Recall","Overall Accuracy","Balanced Accuracy","Specificity","F1","AUC")
+#,"kmeans"=numeric(8),"pam"=numeric(8),"Hclust"=numeric(8)
+#,"Rand Index"
+
+######################Using Logistic Regression#####################
+model_lr <- glm(Revenue ~.,family=binomial(link='logit'),data=train_d)
+#model_lr <- glm(Revenue ~.,family=binomial(link='logit'),data=data_classif_rose)
+
+#Running the model on Validation Set
+pred.val_lr <- predict(model_lr,val_d)
+pred.val_lr <- ifelse(pred.val_lr > 0.5,1,0)
+tlr_1<-table(pred.val_lr,val_d$Revenue)
+
+# Metrics of the model on the Validation Set
+#precision
+presicion_lr_val<- tlr_1[1,1]/(sum(tlr_1[1,]))
+#recall or sensitivity
+recall_lr_val<- tlr_1[1,1]/(sum(tlr_1[,1]))
+#accuracy
+accuracy_lr_val<-(tlr_1[1,1]+tlr_1[2,2])/sum(tlr_1)
+#specificity or selectivity
+specificity_lr_val<- tlr_1[2,2]/(sum(tlr_1[,2]))
+# F1 score
+F1_lr_val<- 2*presicion_lr_val*recall_lr_val/(presicion_lr_val+recall_lr_val)
+
+#Running the same model on Test set
+pred.test_lr <- predict(model_lr,test_d)
+pred.test_lr <- ifelse(pred.test_lr > 0.5,1,0)
+tlr_2<-table(pred.test_lr,test_d$Revenue)
+
+# Metrics of the model on the Test Set
+#precision
+metrics["Precision","LogisticRegression"]= tlr_2[1,1]/(sum(tlr_2[1,]))
+#recall or sensitivity
+metrics["Recall","LogisticRegression"]= tlr_2[1,1]/(sum(tlr_2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","LogisticRegression"]=(tlr_2[1,1]+tlr_2[2,2])/sum(tlr_2)
+#balanced accuracy
+metrics["Balanced Accuracy","LogisticRegression"]=(tlr_2[1,1]/sum(tlr_2[1,])+tlr_2[2,2]/sum(tlr_2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","LogisticRegression"]= tlr_2[2,2]/(sum(tlr_2[,2]))
+
+# F1 score
+metrics["F1","LogisticRegression"]=2*metrics["Precision","LogisticRegression"]*metrics["Recall","LogisticRegression"]/(metrics["Precision","LogisticRegression"]+metrics["Recall","LogisticRegression"])
+
+#ROC and AUC
+pr_lr <- prediction(pred.test_lr,test_d$Revenue)
+perf_lr <- performance(pr_lr,measure = "tpr",x.measure = "fpr")
+plot(perf_lr,color="red", main="Logistic Regression")
+auc_lr<-auc(test_d$Revenue,pred.test_lr)
+metrics["AUC","LogisticRegression"]=auc_lr
+```
+
+Logistic Regression had a mean prediction score of 81%, and had the following metrics along with the above ROC curve:
+
+* Precision: 0.758
+* Recall: 0.904
+* Overall accuracy: 0.806
+* Balanced accuracy: 0.818
+* Specificity: 0.707
+* F1: 0.825
+* AUC: 0.805
+
+```{r, echo=FALSE}
+library(rpart)
+library(rpart.plot)
+###################Using Decision Tree##############################
+model_dt<- rpart(Revenue ~.,data=train_d, method="class")
+rpart.plot(model_dt)
+
+#Running the model on Validation Set
+pred.val_d.dt <- predict(model_dt,val_d,type = "class")
+tdt_1<-table(pred.val_d.dt,val_d$Revenue)
+
+# Metrics of the model on the Validation Set
+#precision
+presicion_dt_val<- tdt_1[1,1]/(sum(tdt_1[1,]))
+#recall or sensitivity
+recall_dt_val<- tdt_1[1,1]/(sum(tdt_1[,1]))
+#accuracy
+accuracy_dt_val<-(tdt_1[1,1]+tdt_1[2,2])/sum(tdt_1)
+#specificity or selectivity
+specificity_dt_val<- tdt_1[2,2]/(sum(tdt_1[,2]))
+
+#F1 Score
+F1_dt_val<- 2*presicion_dt_val*recall_dt_val/(presicion_dt_val+recall_dt_val)
+
+#Running the same model on Test Set
+pred.test_d.dt <- predict(model_dt,test_d,type="class")
+tdt_2<-table(pred.test_d.dt,test_d$Revenue)
+
+# Metrics of the model on the Test Set
+#precision
+metrics["Precision","DecisionTree"]=tdt_2[1,1]/(sum(tdt_2[1,]))
+#recall or sensitivity
+metrics["Recall","DecisionTree"]=tdt_2[1,1]/(sum(tdt_2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","DecisionTree"]=(tdt_2[1,1]+tdt_2[2,2])/sum(tdt_2)
+#balanced accuracy
+metrics["Balanced Accuracy","DecisionTree"]=(tdt_2[1,1]/sum(tdt_2[1,])+tdt_2[2,2]/sum(tdt_2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","DecisionTree"]=tdt_2[2,2]/(sum(tdt_2[,2]))
+
+#F1 Score
+metrics["F1","DecisionTree"]=2*metrics["Precision","DecisionTree"]*metrics["Recall","DecisionTree"]/(metrics["Precision","DecisionTree"]+metrics["Recall","DecisionTree"])
+
+#ROC and AUC
+pr_dt <- prediction(as.numeric(pred.test_d.dt),test_d$Revenue)
+perf_dt <- performance(pr_dt,measure = "tpr",x.measure = "fpr")
+plot(perf_dt,color="red",main="Decision Tree")
+metrics["AUC","DecisionTree"]=auc(test_d$Revenue,pred.test_d.dt)
+```
+
+Next, the Decision Tree model was used to predict site-visitors’ purchase status. A Decision Tree can be used for classification and regression problems (Molnar, 2020). This model is able to demonstrate interactions between varying features within the data. Decision Trees allows the data to be represented in specific groups, which also helps to interpret it easier. Another major advantage of Decision Tree is the model's ability in providing a clear explanation (Molnar, 2020). Decision Tree models are unable to handle linear relationships, this is because the existing relationship between a feature and an outcome is approximated by splits, resulting in a step function (Molnar, 2020). This process is not efficient for this model. Another disadvantage in such a model can prove to be unsteady in that minor change made to the training dataset results in another tree. The model resulted with following metrics:
+
+* Precision: 0.805
+* Recall: 0.891
+* Overall accuracy: 0.836
+* Balanced accuracy: 0.840
+* Specificity: 0.780
+* F1: 0.846
+* AUC: 0.836
+
+```{r, echo=FALSE}
+library(randomForest)
+######################Using Random Forest##############################
+model_rf<-randomForest(Revenue~.,data=train_d)
+
+#the error
+plot(model_rf)
+```
+
+Also, the Random Forest model was used as one of the prediction models. Random Forest models are made of decision trees that have no correlation between them. Such a model can determine the significance of a feature as well as the interaction between the varying features (“Random Forest”, n.d.). Features do not have to be selected and dimensions do not have to be reduced, this is because such a model can give high dimensional data (“Random Forest”, n.d.). The more trees that are present, this model decreases the tendency to overfit. Lastly, this model is very easy to train and implement. One of the major disadvantages of Random Forest is that it tends to fit specific noisy classification or regression problems (“Random Forest”, n.d.). The following shows the Random Forest plot.
+
+```{r, echo=FALSE}
+#Running the model on Validation Set
+pred.val_d.rf <- predict(model_rf,val_d)
+trf_1<-table(pred.val_d.rf,val_d$Revenue)
+
+# Metrics of the model on the Validation Set
+#precision
+presicion_rf_val<- trf_1[1,1]/(sum(trf_1[1,]))
+#recall or sensitivity
+recall_rf_val<- trf_1[1,1]/(sum(trf_1[,1]))
+#accuracy
+accuracy_rf_val<-(trf_1[1,1]+trf_1[2,2])/sum(trf_1)
+#specificity or selectivity
+specificity_rf_val<- trf_1[2,2]/(sum(trf_1[,2]))
+
+#F1 Score
+F1_rf_val<- 2*presicion_rf_val*recall_rf_val/(presicion_rf_val+recall_rf_val)
+
+#Running the same model on Test Set
+pred.test_d.rf <- predict(model_rf,test_d)
+trf_2<-table(pred.test_d.rf,test_d$Revenue)
+
+# Metrics of the model on the Test Set
+#precision
+metrics["Precision","RandomForest"]=trf_2[1,1]/(sum(trf_2[1,]))
+#recall or sensitivity
+metrics["Recall","RandomForest"]=trf_2[1,1]/(sum(trf_2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","RandomForest"]=(trf_2[1,1]+trf_2[2,2])/sum(trf_2)
+#balanced accuracy
+metrics["Balanced Accuracy","RandomForest"]=(trf_2[1,1]/sum(trf_2[1,])+trf_2[2,2]/sum(trf_2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","RandomForest"]= trf_2[2,2]/(sum(trf_2[,2]))
+
+#F1 Score
+metrics["F1","RandomForest"]=2*metrics["Precision","RandomForest"]*metrics["Recall","RandomForest"]/(metrics["Precision","RandomForest"]+metrics["Recall","RandomForest"])
+
+#ROC and AUC
+pr_rf <- prediction(as.numeric(pred.test_d.rf),test_d$Revenue)
+perf_rf <- performance(pr_rf,measure = "tpr",x.measure = "fpr")
+plot(perf_rf,color="red",main="Random Forest")
+metrics["AUC","RandomForest"]=auc(test_d$Revenue,pred.test_d.rf)
+```
+
+Random Forest model had the following metrics and the above ROC curve:
+
+* Precision: 0.894
+* Recall: 0.907
+* Overall accuracy: 0.899
+* Balanced accuracy: 0.899
+* Specificity: 0.890
+* F1: 0.900
+* AUC: 0.898
+
+```{r, echo=FALSE}
+library(class)
+############################Using KNN##################################
+train_labels<-train_d[,15]
+test_labels<-test_d[,15]
+val_labels<-val_d[,15]
+knumber=sqrt(dim(train_d)[2])
+
+#Running Model on Validation set
+model_KNN <- knn(train=train_d,test=val_d,cl=train_labels,k=4)
+tKNN_1=table(model_KNN,val_labels)
+
+# Metrics of the model on the Vaildation Set
+#precision
+precision_knn_val=tKNN_1[1,1]/(sum(tKNN_1[1,]))
+#recall or sensitivity
+recall_knn_val=tKNN_1[1,1]/(sum(tKNN_1[,1]))
+#accuracy
+accuracy_knn_val=(tKNN_1[1,1]+tKNN_1[2,2])/sum(tKNN_1)
+#specificity or selectivity
+specificity_knn_val=tKNN_1[2,2]/(sum(tKNN_1[,2]))
+#F1 Score
+f1_knn_val=2*precision_knn_val*recall_knn_val/(precision_knn_val+recall_knn_val)
+
+#Running KNN on the Test Set
+model_KNN <- knn(train=train_d,test=test_d,cl=train_labels,k=4)
+tKNN_2=table(model_KNN,test_labels)
+
+# Metrics of the model on the Test Set
+#precision
+metrics["Precision","KNN"]=tKNN_2[1,1]/(sum(tKNN_2[1,]))
+#recall or sensitivity
+metrics["Recall","KNN"]=tKNN_2[1,1]/(sum(tKNN_2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","KNN"]=(tKNN_2[1,1]+tKNN_2[2,2])/sum(tKNN_2)
+#balanced accuracy
+metrics["Balanced Accuracy","KNN"]=(tKNN_2[1,1]/sum(tKNN_2[1,])+tKNN_2[2,2]/sum(tKNN_2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","KNN"]=tKNN_1[2,2]/(sum(tKNN_2[,2]))
+#F1 Score
+metrics["F1","KNN"]=2*metrics["Precision","KNN"]*metrics["Recall","KNN"]/(metrics["Precision","KNN"]+metrics["Recall","KNN"])
+
+#ROC and AUC
+pr_knn <- prediction(as.numeric(model_KNN),test_d$Revenue)
+perf_knn <- performance(pr_knn,measure = "tpr",x.measure = "fpr")
+plot(perf_knn,color="red",main="k-NN")
+metrics["AUC","KNN"]=auc(test_d$Revenue,model_KNN)
+```
+
+Lastly, the K-Nearest Neighbor (k-NN) model has been implemented. Although it is said to be lazy, it proves to be quite a versatile algorithm. This model can be used to solve classification and regression problems (“What is the K-nearest”, n.d.). Furthermore, k-NN can also be used for non-linear classification. Interestingly, k-NN models make no assumptions about the data, they demonstrate high accuracy and are not sensitive to outliers (“What is the K-nearest”, n.d.).  One of the many challenges this model presents is that it requires a lot of memory. Also, it deploys an ineffective sample balance, in that the number of samples in certain categories can be large, while the number of other samples are small. Additionally, in order to obtain optimal k value selection, the k value size must be combined with k-fold cross validation. Lastly, if a sample is unbalanced, k-NN gives a large prediction bias (“What is the K-nearest”, n.d.). This algorithm performed with the following metrics and the above ROC curve:
+
+* Precision: 0.934
+* Recall: 0.929
+* Overall accuracy: 0.931
+* Balanced accuracy: 0.928
+* Specificity: 0.844
+* F1: 0.932
+* AUC: 0.931
+
+Putting all the evaluation metrics of the models together, the following visualizations show how the models performed compared to one another.
+
+```{r, echo=FALSE}
+#Model Comparison
+
+#Take a look at the performance of all models
+metrics
+```
+
+```{r, echo=FALSE}
+library(data.table)
+#Visualization of each model's performance
+metrics_v<-metrics
+metrics_v[ "Metric" ] <- rownames(metrics_v)
+df.molten <- melt( metrics_v, id.vars="Metric", value.name="Values", variable.name="Models")
+ggplot(df.molten, aes(fill=Models, y=Values, x=Metric)) +
+  geom_bar(position="dodge", stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+The four models performed are ranked as follows: 1) k-NN was the best model, 2) Random Forest was the second best model, 3) Decision Tree was the third best model, and 4) Logistic Regression performed the worst across the metric scores. Other than specificity, where Random Forest performed the best, k-NN model had the best scores in all metrics.
+
+```{r, echo=FALSE}
+#Feature Importance
+#Logistic Regression Feature Importance
+imp_lr<-varImp(model_lr)
+ggplot(data=imp_lr, aes(x=reorder(rownames(imp_lr), Overall),y=Overall)) +
+  geom_bar(stat="identity")+coord_flip()
+#Page Values is the most important
+```
+
+In addition to the model evaluation, further evaluative steps were taken to identify which features were more important and significant in the predictive models. In Logistic Regression, it is shown that Page values was the most important feature, and Exit rate was the second most important feature. Browser Type was the least important feature.
+
+```{r, echo=FALSE}
+#Decision Tree Feature Importance
+imp_dt<-varImp(model_dt)
+ggplot(data=imp_dt, aes(x=reorder(rownames(imp_dt), Overall),y=Overall)) +
+  geom_bar(stat="identity")+coord_flip()
+##Page Values is the most important
+```
+
+In the Decision Tree model, Page value was again the most important feature, and Bounce rate was the second most important feature. Exit Rate, which was ranked as the second important feature in Logistic Regression, came third in the Decision tree model, which affirms Exit rate as one of the important features. Administrative duration was the least important feature, and ‘Browser type’ was the second least important feature.
+
+```{r, echo=FALSE}
+#Random Forest Feature Importance
+imp_rf<-varImp(model_rf)
+ggplot(data=imp_rf, aes(x=reorder(rownames(imp_rf), Overall),y=Overall)) +
+  geom_bar(stat="identity")+coord_flip()
+##Page Values is the most important
+```
+
+In the Random Forest model, Page value was again the most important feature, Bounce rate as second, and Exit rate as third most important feature. Weekend was the least important feature. The Visitor type was the second least important, and Browser type was confirmed again as less important by coming to the third place. So far, all models displayed similar features as important and unimportant.
+
+```{r, echo=FALSE}
+#Because KNN does not provide feature importance calculation functions, it is possible to measure metrics when each feature is removed. Depending on what metric show, corresponding conclusions can be made
+
+imp_knn<-data.frame("Precision"=numeric(14),"Recall"=numeric(14),"OverallAccuracy"=numeric(14),"BalancedAccuracy"=numeric(14),"Specificity"=numeric(14),"F1"=numeric(14),"AUC"=numeric(14))
+rownames(imp_knn)<-c("Administrative","Administrative_Duration","Informational","Informational_Duration","ProductRelated","ProductRelated_Duration","BounceRates","ExitRates","PageValues","SpecialDay","Month","Browser","VisitorType","Weekend")
+
+for (i in 1:14){
+  i
+  train_d_f=train_d[,-c(i)]
+  test_d_f=test_d[,-c(i)]
+  model_f_KNN <- knn(train=train_d_f,test=test_d_f,cl=train_labels,k=4)
+  tKNN_f=table(model_f_KNN,test_labels)
+rownames(imp_knn[i,])
+#precision
+imp_knn[i,"Precision"]=tKNN_f[1,1]/(sum(tKNN_f[1,]))
+#recall or sensitivity
+imp_knn[i,"Recall"]=tKNN_f[1,1]/(sum(tKNN_f[,1]))
+#overall accuracy
+imp_knn[i,"OverallAccuracy"]=(tKNN_f[1,1]+tKNN_f[2,2])/sum(tKNN_2)
+#balanced accuracy
+imp_knn[i,"BalancedAccuracy"]=(tKNN_f[1,1]/sum(tKNN_f[1,])+tKNN_f[2,2]/sum(tKNN_f[2,]))/2
+#specificity or selectivity
+imp_knn[i,"Specificity"]=tKNN_f[2,2]/(sum(tKNN_f[,2]))
+#F1 Score
+imp_knn[i,"F1"]=2*imp_knn[i,"Precision"]*imp_knn[i,"Recall"]/(imp_knn[i,"Precision"]+imp_knn[i,"Recall"])
+#AUC
+imp_knn[i,"AUC"]=auc(test_d_f$Revenue,model_f_KNN)
+}
+
+#Metrics of the model when a feature removed at a time
+#imp_knn
+#Looks like When some features are removed, the model gets only better. For example
+
+#Visualization of feature importances for KNN
+imp_knn_v<-1-imp_knn
+knnfeatureplot1<-ggplot(data=imp_knn_v, aes(x=reorder(rownames(imp_knn_v), F1),y=F1)) +
+  geom_bar(stat="identity")+coord_flip()
+knnfeatureplot2<-ggplot(data=imp_knn_v, aes(x=reorder(rownames(imp_knn_v), AUC),y=AUC)) +
+  geom_bar(stat="identity")+coord_flip()
+grid.arrange(knnfeatureplot1, knnfeatureplot2, nrow=1)
+```
+
+However, k-NN displayed contradicting results. It displayed Browser type and Visitor type as the important features, while those two features were least important features in other models. However, k-NN still showed Page value as one of the top important features, which is consistent with other models as well.
+
+Overall, Page value seems to be the most important feature, as it was consistently shown in all models to be the most contributing one. The Exit rate and Bounce rate closely follow as the second and third most important features. This indicates that the factors that influence website visitors to make a purchase are the value score of the web page and the increased length of stay in the web page.
+
+## Clustering Model Development and Evaluation 
+
+While classification models were used to predict website visitor’s purchase and to evaluate important features that affect the prediction the most,  clustering models were used to answer the third analytical question which is two-fold.  First, what are the common behaviour trends in our user base/ how are important features represented across our user base?  Second, if users are segmented, does this reflect purchasing frequency/power as an alternative to classification models? These analytical questions are designed to provide a thorough understanding of users and their behaviour trends.
+
+### Finding optimal k
+
+To prepare for clustering modeling, different methods were used to find the optimal number of clusters (k). First, the Elbow method was used; this method is useful in choosing the optimum value of k as it fits the model with a range of values of k (Franklin, 2019). Unfortunately, with the online shoppers dataset, this method produced a result that was not easily comprehensible.
+
+```{r, echo=FALSE}
+#Clustering#
+clust_data<-as.data.frame(lapply(datadump[-c(18)], as.numeric))
+clust_data_sd<-scale(clust_data)
+
+#Finding optimal k
+#Elbow method using within groups of sum of squares
+wss <- (nrow(clust_data_sd)-1)*sum(apply(clust_data_sd,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(clust_data_sd,
+                                       centers=i)$withinss)
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+#It is hard to tell about optimal k, few options at once
+```
+
+Therefore, the Calinski-Harabasz method was used as it assesses cluster validity based on the average between and within the cluster sum of squares (Liu et al., 2010). This method indicated the optimal number of k to be 3.
+
+```{r}
+library(fpc)
+#Calinkski-Harabasz method
+tunek_ch <- kmeansruns(clust_data_sd,krange = 1:10,criterion = "ch")
+tunek_ch$bestk
+```
+
+Then, the Silhouette method was used as it can assess the degree of separation between clusters (Dabbura, 2018). In each sample, the Silhouette method will determine the average distance from all data points in the same cluster, determine average distance from all data points in the closest cluse and finally it will determine the coefficient using the following equation:
+
+$$\frac{b^i-a^i}{max(a^i,b^i)}$$
+
+In which, the coefficient will take a value between -1 and 1 (Dabbura, 2018). A coefficient value of “0” indicates that the sample is very close to neighbouring clusters, whereas a value of  “1” denotes that the sample is far from the neighbouring clusters. Finally, a value of  “-1”  means that the sample is designated to the wrong cluster (Dabbura, 2018).
+
+```{r, echo=FALSE}
+library(purrr)
+library(cluster)
+#function to compute average silhouette for k clusters [It runs 2-3 minutes]
+avg_sil <- function(k) {
+  km.res <- kmeans(clust_data_sd, centers=k)
+  ss <- silhouette(km.res$cluster, dist(clust_data))
+  mean(ss[, 3])
+}
+# Compute and plot wss for k = 2 to k = 10
+k.values <- 2:10
+# extract avg silhouette for 2-10 clusters
+avg_sil_values <- map_dbl(k.values, avg_sil)
+plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE,
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+
+#According to average silhouette method, best k is 2.So we will consider both k=2 and k=3 for all clustering methods, where #k=2 can be used for prediction and #k=3 can be used for research of customer base
+```
+
+When applied, this method indicated the ideal number of k to be 2. Therefore, both k=2 and k=3 will be used in this clustering analysis. All these methods employed K-means as a base because calculating for optimal k using PAM or Hierarchical clustering was excessively heavy in terms of CPU and memory usage at every attempt.
+
+### k=2, Clustering, K-means, PAM, and Hierarchical
+
+K-means is used to find groups within the data, where the number of groups are denoted by the variable k (Trevino, 2016). This method functions by repeatedly assigning each data point to one of the k groups. Then, data points are clustered according to their feature similarity. The final output of K-means clustering method is 1) the centroids of the k clusters and 2) labels for the training data (Trevino, 2016).
+
+K-means clustering produced the following visual when k=2 was used.
+There were a total of 10,396 site visitors in cluster 1, and 1,934 site visitors in cluster 2.
+
+```{r, echo=FALSE}
+library(factoextra)
+#K-means Clustering
+set.seed(450)
+k2<-kmeans(clust_data_sd,2)
+p2 <- fviz_cluster(k2, data = clust_data_sd, ellipse.type = "convex") + theme_minimal() + ggtitle("k = 2")
+plot(p2)
+```
+
+```{r, echo=FALSE}
+#Review of k means clustering results for optimal k=2
+kmeansdata <- cbind(clust_data,k2$cluster)
+
+#Breakdown of Clusters
+table(kmeansdata[,"k2$cluster"])
+```
+
+```{r, echo=FALSE}
+#Explaining clusters by Administrative sessions
+kmeansclust2plot1<-ggplot(kmeansdata, aes(Administrative, fill = as.factor(k2$cluster)))+geom_bar(position="dodge")+ggtitle("Administrative")
+#Explaining clusters by Administrative Duration
+kmeansclust2plot2<-ggplot(kmeansdata, aes(factor(k2$cluster),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(k2$cluster)))+ggtitle("Administrative Duration")
+grid.arrange(kmeansclust2plot1, kmeansclust2plot2, nrow=2)
+```
+
+Web page visitors in cluster 1 visited distinctively less Administrative (account-related) pages than cluster 2, and spent much less time in the Administrative pages than cluster 2.
+
+```{r, echo=FALSE}
+plot3<- ggplot(kmeansdata, aes(Informational, fill = as.factor(k2$cluster)))+geom_bar(position="dodge")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+plot4<- ggplot(kmeansdata, aes(factor(k2$cluster),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(k2$cluster)))+ggtitle("Informational Duration")
+#Explaining clusters by ProductRelated Sessions
+plot5<-ggplot(kmeansdata, aes(ProductRelated, fill = as.factor(k2$cluster)))+geom_bar(position="dodge")+ggtitle("Product Related")
+#Explaining clusters by ProductRelated Duration
+plot6<-ggplot(kmeansdata, aes(factor(k2$cluster),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(k2$cluster)))+ggtitle("Product Related Duration")
+grid.arrange(plot3, plot4, plot5, plot6, ncol=2)
+```
+
+The exact same behavior pattern was repeated for information (company-related) pages and Product Related pages as well, where cluster 1 not only visits less sites, but also spends less time in those sites.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+plot7<-ggplot(kmeansdata, aes(factor(k2$cluster),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(k2$cluster)))+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+plot8<-ggplot(kmeansdata, aes(factor(k2$cluster),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(k2$cluster)))+ggtitle("Exit Ratess")
+grid.arrange(plot7, plot8, nrow=2)
+```
+
+These insights are consistent with the Bounce and Exit rates as well. Cluster 1 had a much greater Bounce and Exit rate than cluster 2.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(kmeansdata, aes(factor(k2$cluster),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(k2$cluster)))+ggtitle("Page Values")
+```
+
+For the Page value, the interquartile range of cluster 2 is higher than the cluster 1. The observations made thus far seem to suggest that the site-visitors in cluster 2 are more likely to make purchases than the site-visitors in cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+The site-visitors in cluster 2 (the ones with higher likelihood of making purchases) are likely to shop much more in November than site-visitors in cluster 1. From this, one can speculate that site-visitors who are frequent buyers on e-commerce websites, are more likely to prepare for winter holidays seasons by shopping for gifts.
+
+```{r, echo=FALSE}
+#Explaining clusters by Operating Systems types
+plot9<-ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+#Explaining clusters by Browser types
+plot10<-ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Type")
+grid.arrange(plot9, plot10, nrow=2)
+```
+
+Also, site-visitors in different clusters use different Browser types (e.g. Google Chrome, Safari) and computer operating systems (e.g. Mac OS, Windows). Given that the Sakar et al. paper does not define what each numerical value represent in the Browser and Operating System columns, there is no way of knowing which specific Browser and Operating System types are popular among cluster 1 and 2; but nevertheless, it’s an interesting insight to observe that site-visitors in different clusters have different usage preference in Browser and computer Operating System.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Type")
+```
+
+Another interesting observation was made in Traffic types. The different Traffic type values represent how the visitor arrived at the e-commerce website (e.g. through SMS messaging, email, search engines, etc). Different clusters showed visibly different routes of Traffic type. Again, Sakar et al paper does not define the numerical values in the Traffic type column, but this still provides an interesting insight that site-visitors who are more likely to make purchases might get triggered to visit e-commerce websites by certain prompts (e.g. website link in the promotional emails) more than the site-visitors who are unlikely to make purchases, which is one of the theories that can explain the different Traffic types of the clusters.
+
+```{r, echo=FALSE}
+ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(VisitorType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Type")
+```
+
+In both clusters, there were barely any Returning visitors ("1") to the website. Most common visitor type was the New visitor in both clusters, but cluster 1 was more likely to have "Other" visitor type, where cluster 2 was more likely to have New visitor type.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region")
+```
+
+While the clusters showed different behaviours in certain features, there were features where the clusters did not differ much from each other. Both clusters displayed fairly equal representation for the Region. This indicates that the region and location is not significant in characterizing e-commerce visitors.
+
+```{r, echo=FALSE}
+#Explaining clusters by Weekend and Weekday visits
+ggplot(data = kmeansdata, mapping = aes(x = as.factor(k2$cluster), fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend")
+```
+
+The clusters were also quite similar for the weekend shopping as well, although the cluster 2 was more likely to make a purchase on weekends.
+
+The following tables show the k centers of cluster 1 and 2, respectively.
+
+```{r, echo=FALSE}
+#Viewing cluster 1
+#subset(kmeansdata,k2$cluster==1)
+#Cluster 1 centers
+k2$centers[1,]
+#Viewing cluster 2
+#subset(kmeansdata,k2$cluster==2)
+#Cluster 2 centers
+k2$centers[2,]
+```
+
+Moreover, the following shows the differences between the clusters' centers.
+
+```{r, echo=FALSE}
+#Differences between clusters
+Differences_kmeans <- k2$centers[1,] - k2$centers[2,]
+Differences_kmeans <-Differences_kmeans[order(abs(Differences_kmeans), decreasing = T)]
+Differences_kmeans
+```
+
+The following pie charts show the cluster representation of 1 and 2, respectively. The pie charts indicate the interests of e-commerce visitors, such as Product Related pages and Administrative pages of the shopping website.
+
+```{r, echo=FALSE}
+#cluster 1
+pie(colSums(clust_data[k2$cluster==1,]),cex=1,main = "Cluster 1")
+#cluster 2
+pie(colSums(clust_data[k2$cluster==2,]),cex=1,main = "Cluster 2")
+```
+
+The above pie charts indicate that there are differences in interests between cluster 1 and 2. Cluster 2 overall has more diverse interests than cluster 1, because cluster 2’s pie chart has many more bigger pieces than cluster 1. Furthermore, cluster 2 shows bigger interest in spending more time in web pages that are related to administration (e.g. account  setup and management). The same cluster 2 also shows greater interest in spending more time in web pages relevant to the company's information (e.g. company's founder, address). Overall, it seems that cluster 1 does not have much varied interest compared to cluster 2.
+
+In addition to the K-means clustering, the PAM model was also used, as this algorithm searches for the k representative objects or medoids in the dataset (Kassambara, n.d.). Once a set of k medoids are found, clusters are made by allocating each observation to the closest medoid. Next, the objective function is determined by swapping the selected medoid and non-medoid data point (Kassambara, n.d.).
+
+The following graph shows how PAM divided the site-visitors into 2 clusters, in which 9,039 site-visitors were in the first cluster, and 3,291 site-visitors in the second cluster.
+
+```{r, echo=FALSE}
+##PAM##
+#Implementing K medoids on optimal k=2 and k=3
+set.seed(450)
+pam.res <- pam(clust_data, 2)
+#print(pam.res)
+
+#Visualize PAM clustering
+fviz_cluster(pam.res, data = clust_data, ellipse.type = "convex") + theme_minimal() + ggtitle("PAM Clustering")
+pamdata<-cbind(clust_data,pam.res$clustering)
+
+#Breakdown of Clusters
+table(pamdata[,"pam.res$clustering"])
+```
+
+```{r, echo=FALSE}
+#Explaining clusters by Administrative Sessions
+pamk2plot1<-ggplot(pamdata, aes(Administrative, fill = as.factor(pam.res$clustering)))+geom_bar(position="dodge")+ggtitle("Administrative")
+#Explaining clusters by Administrative Duration
+pamk2plot2<-ggplot(pamdata, aes(factor(pam.res$clustering),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(pam.res$clustering)))+ggtitle("Administrative Duration")
+grid.arrange(pamk2plot1, pamk2plot2, nrow=2)
+```
+
+Here, cluster 2 visits more Administrative web pages, and spends more time in those web pages compared to cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Informational Sessions
+pamk2plot3<-ggplot(pamdata, aes(Informational, fill = as.factor(pam.res$clustering)))+geom_bar(position="dodge")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+pamk2plot4<-ggplot(pamdata,aes(factor(pam.res$clustering),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(pam.res$clustering)))+ggtitle("Informational Duration")
+
+#Explaining clusters by ProductRelated Sessions
+pamk2plot5<-ggplot(pamdata, aes(ProductRelated, fill = as.factor(pam.res$clustering)))+geom_bar(position="dodge")+ggtitle("Product Related")
+#Explaining clusters by Product Related Duration
+pamk2plot6<-ggplot(pamdata, aes(factor(pam.res$clustering),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(pam.res$clustering)))+ggtitle("Product Related Duration")
+grid.arrange(pamk2plot3, pamk2plot4, pamk2plot5, pamk2plot6, nrow=2, ncol=2)
+```
+
+Cluster 1 and 2 repeat the same behaviour trend with Informational and Product Related web pages as well, where cluster 2 visits more frequently and spends more time in the web pages than cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+pamk2plot7<-ggplot(pamdata, aes(factor(pam.res$clustering),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(pam.res$clustering)))+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+pamk2plot8<-ggplot(pamdata, aes(factor(pam.res$clustering),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(pam.res$clustering)))+ggtitle("Exit Rates")
+grid.arrange(pamk2plot7, pamk2plot8, nrow=2)
+```
+
+These graphs illustrate that cluster 2 has lower Bounce and Exit rates than cluster 1. Combining this observation with the last observations from the above plots, this seems to indicate that cluster 2 is likely to purchase and cluster 1 is unlikely to purchase.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(pamdata, aes(factor(pam.res$clustering),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(pam.res$clustering)))+ggtitle("Page Values")
+```
+
+Cluster 2 (likely to make a purchase) shows higher Page value in its interquartile range than compared to cluster 1. This further supports the idea that cluster 2 represents a segment that is likely to make a purchase.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+Cluster 2 is likely to shop more near the end of the year, such as November. Cluster 1 is likely to shop more near the beginning and the earlier months of the year, such as February~April. Cluster 1 shops significantly less in November compared to cluster 2.
+
+```{r, echo=FALSE}
+#Explaining clusters by Operating Systems types
+pamk2plot9<-ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+#Explaining clusters by Browser types
+pamk2plot10<-ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Types")
+grid.arrange(pamk2plot9, pamk2plot10, nrow=2)
+```
+
+The Operating System of type 2 and Browser of type 2 are the most popular and widely used across the two clusters. However, cluster 2 is more likely to use this popular Operating System and Browser type compared to cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Types")
+```
+
+Traffic type 3 is the most popular traffic type that motivates users to the shopping website. Similarly to the Operating System and Browser type, cluster 2 is more likely to use this popular Traffic type compared to cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Visitor Types
+ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(VisitorType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Types")
+```
+
+Both clusters are very unlikely to be Returning Visitors, as shown by the miniscule red bar that represents the Returning Visitor type in the above plot. Compared to cluster 1, cluster 2 is more likely to contain New Visitors, while cluster 1 is more likely to consist of "Other" Visitor type.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+pamk2plot15<-ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region Types")
+#Explaining clusters by Weekend and weekday visits
+pamk2plot12<-ggplot(data = pamdata, mapping = aes(x = as.factor(pam.res$clustering), fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend")
+grid.arrange(pamk2plot15, pamk2plot12, nrow=2)
+```
+
+According to graphs above, two clusters were very much similar in these features.
+
+The following shows the medoids of cluster 1 and 2, respectively, in the PAM model.
+
+```{r, echo=FALSE}
+#Cluster 1 medoids
+pam.res$medoids[1,]
+#Cluster 2 medoids
+pam.res$medoids[2,]
+```
+
+The pie charts below show the cluster representation of 1 and 2, respectively, in the PAM model.
+
+```{r, echo=FALSE}
+#Viewing cluster 1
+#subset(pamdata,pam.res$clustering==1)
+pie(colSums(clust_data[pam.res$clustering==1,]),cex=1, main = "Cluster 1")
+
+#Viewing cluster 2
+#subset(pamdata,pam.res$clustering==2)
+pie(colSums(clust_data[pam.res$clustering==2,]),cex=1, main = "Cluster 2")
+```
+
+The above pie charts show that cluster 1 has more interest in Administrative related web pages than cluster 2. Both clusters are most interested in spending time in the Product Related pages, as shown by the largest area in the pie chart. This trend is consistent in both K-means and PAM models. Overall, cluster 1 shows more varied and diverse interests than cluster 2, shown by the bigger pieces dedicated to other features in the cluster 1 pie chart.
+
+The following table shows the differences between the cluster 1 and 2 medoids.
+
+```{r, echo=FALSE}
+#Differences between clusters
+Differences_pam <- pam.res$medoids[1,] - pam.res$medoids[2,]
+Differences_pam <-Differences_pam[order(abs(Differences_pam), decreasing = T)]
+Differences_pam
+```
+
+Lastly, the Hierarchical clustering model was used in order to find a hierarchy of clusters; this hierarchy creates a dendrogram that resembles a tree structure (Kilitcioglu, 2018). The hierarchical cluster technique used is agglomerative clustering in which each data point initiates its own clusters. Then, the two most similar clusters are joined (Kilitcioglu, 2018).
+
+The following graph shows the model’s cluster dendrogram and cluster plot. The model placed 6,946 site-visitors in cluster 1, and 5,384 site-visitors in cluster 2.
+
+```{r, echo=FALSE}
+###Hierarchical Clustering###
+#It does not require k to be specified, but we will compare k=2 and k=3
+set.seed(450)
+d <- dist(clust_data,method = "euclidean") #distance matrix
+h_clust <- hclust(d, method = "ward.D") #clustering
+plot(h_clust,labels = datadump$Revenue,cex=1) #dendrogram
+#rect.hclust(h_clust,k=2)
+#extract clusters
+groups_k2 <- cutree(h_clust,k=2)
+
+#Review of hierarchical clustering results for optimal k=2
+fviz_cluster(list(data = clust_data, cluster = groups_k2))
+hclustdata <- cbind(clust_data,groups_k2)
+
+#Breakdown of Clusters
+table(hclustdata[,"groups_k2"])
+```
+
+```{r, echo=FALSE}
+#Explaining clusters by Administrative Sessions
+hclustk2plot1<-ggplot(hclustdata, aes(Administrative, fill = as.factor(groups_k2)))+geom_bar(position="dodge")+ggtitle("Administrative")
+#Explaining clusters by Administrative Duration 
+hclustk2plot2<-ggplot(hclustdata, aes(factor(groups_k2),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(groups_k2)))+ggtitle("Administrative Duration")
+grid.arrange(hclustk2plot1, hclustk2plot2, nrow=2)
+```
+
+It can be observed from the above plot that cluster 2 in this hierarchical model visits more administration websites, and also spends more time in the administration websites than cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Informational Sessions
+hclustk2plot3<-ggplot(hclustdata, aes(Informational, fill = as.factor(groups_k2)))+geom_bar(position="dodge")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+hclustk2plot4<-ggplot(hclustdata,aes(factor(groups_k2),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(groups_k2)))+ggtitle("Informational Duration")
+#Explaining clusters by Product Related Sessions
+hclustk2plot5<-ggplot(hclustdata, aes(ProductRelated, fill = as.factor(groups_k2)))+geom_bar(position="dodge")+ggtitle("Product Related")
+#Explaining clusters by Product Related Duration
+hclustk2plot6<-ggplot(hclustdata, aes(factor(groups_k2),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(groups_k2)))+ggtitle("Product Related Duration")
+grid.arrange(hclustk2plot3, hclustk2plot4, hclustk2plot5, hclustk2plot6, nrow=2, ncol=2)
+```
+
+The same behaviour trend is visible with regards to Informational and Product Related websites as well, where cluster 2 visited more frequently and stayed longer in the websites.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+hclustk2plot7<-ggplot(hclustdata, aes(factor(groups_k2),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(groups_k2)))+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+hclustk2plot8<-ggplot(hclustdata, aes(factor(groups_k2),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(groups_k2)))+ggtitle("Exit Rates")
+grid.arrange(hclustk2plot7, hclustk2plot8, nrow=2)
+```
+
+Also, the cluster 2 had lower Bounce and Exit rates compared to cluster 1.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(hclustdata, aes(factor(groups_k2),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(groups_k2)))+ggtitle("Page Values")
+```
+
+Cluster 2 also had a higher Page value than cluster 1, which is a consistent trend due to its low Bounce and Exit rate. At this point, it can be anticipated that cluster 2 represents those who are likely to purchase, whereas cluster 1 ones who are unlikely to make a purchase on shopping websites.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+Compared to cluster 1, cluster 2 is more likely to shop around November. On the other hand, cluster 1 shops more around mid-early year, such as April and May, compared to cluster 2.
+
+```{r, echo=FALSE}
+#Explaining clusters by Operating Systems types
+hclustk2plot11<-ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+#Explaining clusters by Browser types
+hclustk2plot12<-ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Type")
+grid.arrange(hclustk2plot11, hclustk2plot12, nrow=2)
+```
+
+Cluster 1 and 2 used different Browsers and Operating Systems. Cluster 1 prefers Operating System types as 1 and 3, while cluster 2 prefers Operating System type 2. For a Browser type, cluster 1 prefers type 1, while cluster 2 prefers a Browser type 2. This difference in the preference of Operating System and Browser type was also observed in previous clustering models.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Type")
+```
+
+For a Traffic type, it can be observed that cluster 2 especially uses a Traffic type 2 to arrive at the shopping website, whereas cluster 1 uses a Traffic type 4 more.
+
+```{r, echo=FALSE}
+#Explaining clusters by Visitor Types
+ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(VisitorType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Type")
+```
+
+From the above plot, cluster 2 is likely to be a new visitor to the website, while cluster 1 is likely to be "Other" visitor type. It is interesting to note that both clusters are unlikely to be a Returning visitor type.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+hclustk2plot13<-ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region")
+#Explaining clusters by Weekend and weekday visits
+hclustk2plot16<-ggplot(data = hclustdata, mapping = aes(x = as.factor(groups_k2), fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend")
+grid.arrange(hclustk2plot13, hclustk2plot16, nrow=2)
+```
+
+Similar to previous observations, Region and Weekend were consistent for both clusters.
+
+### Model Evaluation - Clustering, k=2
+
+To compare which models performed better in clustering for k=2, two metrics were used: internal and external. Silhouette is an internal evaluation method, where the score ranges from -1 to 1. The closer a score is to 1, the better the model is. Also, the Silhouette method produces a visual plot that shows a “tail” that may run beneath the x-axis. The longer this tail is, and deeper it runs beneath the x-axis, the worse the model is, since that tail represents the amount of data points that are misplaced. For the external evaluation method, Rand index score was used. The Rand index, named after William M. Rand, is a measure to compare the similarity of two clustering outcomes by giving a value between 0 and 1, where 1 means the two clustering outcomes match identically (R Documentation, n.d.-a; Wikipedia, 2020).
+
+The following list shows how all three clustering models performed in the silhouette and Rand index score.
+
+```{r, echo=FALSE}
+library(ClusterR)
+#Internal Validation
+k2_sil<-silhouette(k2$cluster,dist(clust_data_sd))
+fviz_silhouette(k2_sil)
+#number of misplaced observations(they are in the wrong cluster)
+k2_misplaced=length(k2_sil[k2_sil<0])
+#External Validation
+metrics["Rand Index","kmeans"]=external_validation(as.numeric(datadump$Revenue), k2$cluster, method = "rand_index")
+```
+
+K-means
+
+* k=2 Silhouette score: 0.26
+* k=2 misplaced observations: 997
+* Rand Index: 0.653
+
+```{r, echo=FALSE}
+#PAM
+#Internal Validation
+fviz_silhouette(pam.res)
+#number of misplaced observations(they are in the wrong cluster)
+pam2_misplaced=length(pam.res$silinfo$widths[pam.res$silinfo$widths<0])
+#External Validation
+metrics["Rand Index","pam"]=external_validation(as.numeric(datadump$Revenue), pam.res$clustering, method = "rand_index")
+```
+
+PAM
+
+* k=2 Silhouette score: 0.63
+* k=2 misplaced observations: 1,172
+* Rand Index: 0.584
+
+
+```{r, echo=FALSE}
+#Hierarchical
+#Internal Validation
+hc2_sil<-silhouette(groups_k2,dist(clust_data))
+fviz_silhouette(hc2_sil)
+#number of misplaced observations(they are in the wrong cluster)
+hc2_misplaced=length(hc2_sil[hc2_sil<0])
+#External Validation
+metrics["Rand Index","Hclust"]=external_validation(as.numeric(datadump$Revenue), groups_k2, method = "rand_index")
+```
+
+Hierarchical
+
+* k=2 Silhouette score: 0.46
+* k=2 misplaced observations: 2,561
+* Rand Index: 0.523
+
+The metrics were summarized into a table and a visual plot.
+
+```{r, echo=FALSE}
+metrics_k2_clustering<-metrics[-c(1:7),-c(1:4)]
+metrics_k2_clustering["Silhouette score","kmeans"]=0.26
+metrics_k2_clustering["Silhouette score","pam"]=0.63
+metrics_k2_clustering["Silhouette score","Hclust"]=0.46
+metrics_k2_clustering["k=2 misplaced observations","kmeans"]=0.997 #note: scaled
+metrics_k2_clustering["k=2 misplaced observations","pam"]=1.172 #note: scaled
+metrics_k2_clustering["k=2 misplaced observations","Hclust"]=2.561 #note: scaled
+metrics_k2_clustering
+metrics_k2clustering2<-metrics_k2_clustering
+metrics_k2clustering2[ "Metric" ] <- rownames(metrics_k2clustering2)
+df.moltenk2clust <- melt( metrics_k2clustering2, id.vars="Metric", value.name="Values", variable.name="Models")
+ggplot(df.moltenk2clust, aes(fill=Models, y=Values, x=Metric)) +
+  geom_bar(position="dodge", stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+It seems that PAM performed the best in Silhouette score, k-means clustering performed the best in Rand Index score, and PAM had the least misplacement. 
+
+Overall, it seems like the PAM model achieved relatively higher performance as it is depicted by evaluation metrics.
+
+### Model Evaluation - Classification vs Clustering
+
+The clustering models were compared against the classification models in predicting online visitors’ purchase.
+
+The following table and graph shows the evaluation metrics of all classification and clustering models.
+
+```{r, echo=FALSE}
+#k-means scores
+tk2 <- table(k2$cluster, datadump$Revenue)
+
+metrics["Precision","kmeans"]=tk2[1,1]/(sum(tk2[1,]))
+#recall or sensitivity
+metrics["Recall","kmeans"]=tk2[1,1]/(sum(tk2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","kmeans"]=(tk2[1,1]+tk2[2,2])/sum(tk2)
+#balanced accuracy
+metrics["Balanced Accuracy","kmeans"]=(tk2[1,1]/sum(tk2[1,])+tk2[2,2]/sum(tk2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","kmeans"]=tk2[2,2]/(sum(tk2[,2]))
+#F1 Score
+metrics["F1","kmeans"]=2*metrics["Precision","kmeans"]*metrics["Recall","kmeans"]/(metrics["Precision","kmeans"]+metrics["Recall","kmeans"])
+
+#PAM scores
+tp2<- table(pam.res$clustering, datadump$Revenue)
+metrics["Precision","pam"]=tp2[1,1]/(sum(tp2[1,]))
+#recall or sensitivity
+metrics["Recall","pam"]=tp2[1,1]/(sum(tp2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","pam"]=(tp2[1,1]+tp2[2,2])/sum(tp2)
+#balanced accuracy
+metrics["Balanced Accuracy","pam"]=(tp2[1,1]/sum(tp2[1,])+tp2[2,2]/sum(tp2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","pam"]=tp2[2,2]/(sum(tp2[,2]))
+#F1 Score
+metrics["F1","pam"]=2*metrics["Precision","pam"]*metrics["Recall","pam"]/(metrics["Precision","pam"]+metrics["Recall","pam"])
+
+#Hierarchical scores
+th2<- table(groups_k2,datadump$Revenue)
+
+metrics["Precision","Hclust"]=th2[1,1]/(sum(th2[1,]))
+#recall or sensitivity
+metrics["Recall","Hclust"]=th2[1,1]/(sum(th2[,1]))
+#overall accuracy
+metrics["Overall Accuracy","Hclust"]=(th2[1,1]+th2[2,2])/sum(th2)
+#balanced accuracy
+metrics["Balanced Accuracy","Hclust"]=(th2[1,1]/sum(th2[1,])+th2[2,2]/sum(th2[2,]))/2
+#specificity or selectivity
+metrics["Specificity","Hclust"]=th2[2,2]/(sum(th2[,2]))
+#F1 Score
+metrics["F1","Hclust"]=2*metrics["Precision","Hclust"]*metrics["Recall","Hclust"]/(metrics["Precision","Hclust"]+metrics["Recall","Hclust"])
+
+####Model Comparison:Classification vs Clustering###
+
+#Take a look at the performance of all models
+metrics
+
+#Visualization of each model's performance
+metrics_v<-metrics[1:7,]
+metrics_v[ "Metric" ] <- rownames(metrics_v)
+df.molten <- melt( metrics_v, id.vars="Metric", value.name="Values", variable.name="Models")
+ggplot(df.molten, aes(fill=Models, y=Values, x=Metric)) + 
+  geom_bar(position="dodge", stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+As shown above, clustering models overall did much poorly than classification models in predicting online visitors’ purchase. The clustering models did especially poorly in the balanced accuracy and specificity scores.
+
+While clustering algorithms are now proven to be less effective for predicting user purchase intention using this dataset, they look promising to be utilized as a method to research and understand online users’ behaviours and trends.
+
+### Further Research: k=3, Clustering, K-means, PAM, and Hierarchical
+
+To further analyze the site-visitors and their behaviour trends, k=3 was used for all the clustering models again.
+
+The K-means clustering model produced the following plot for k=3, where there were 1,646 visitors in cluster 1, 1,061 visitors in cluster 2, and 9,623 visitors in cluster 3.
+
+```{r, echo=FALSE}
+####Research of Customer Base, K=3 kmeans####
+set.seed(329)
+k3<-kmeans(clust_data_sd,3)  #<---Using k means
+p3 <- fviz_cluster(k3, data = clust_data_sd, ellipse.type = "convex") + theme_minimal() + ggtitle("k = 3")
+
+plot(p3)
+
+#Review of k means clustering results for optimal k=2
+kresearchdata <- cbind(clust_data,k3$cluster)
+
+#Breakdown of Clusters
+table(kresearchdata[,"k3$cluster"])
+```
+
+As in k=2 clustering, the k=3 clustering also produced a group that was likely and unlikely to make a purchase. However, it further divided the group that was unlikely to make a purchase into two. While both of those two groups were unlikely to make a purchase (performed similarly in page visit and duration features), one cluster had a slightly lower Bounce and Exit rates. Therefore, it seemed that k=3 clustering divided the site-visitors into a) likely to make purchases (cluster 1), b) less likely to make a purchase (cluster 3), and c) very stubborn and least likely to make a purchase (cluster 2).
+
+```{r, echo=FALSE}
+#Explaining clusters by Administrative sessions
+ggplot(data = kresearchdata,aes(x=Administrative,fill=as.factor(k3$cluster)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Administrative")
+```
+
+The graph above demonstrates that the cluster 2 visited Administrative web pages the least, while cluster 1 visited the most.
+
+```{r, echo=FALSE}
+#Explaining clusters by Administrative Duration
+ggplot(kresearchdata, aes(factor(k3$cluster),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Administrative Duration")
+```
+
+Moreover, cluster 1 spent the most time on the Administrative web pages, cluster 2 spent the least time, and cluster 3 was in-between.
+
+```{r, echo=FALSE}
+#Explaining clusters by Informational Sessions
+kmeans3plot1<-ggplot(data = kresearchdata,aes(x=Informational,fill=as.factor(k3$cluster)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+kmeans3plot2<-ggplot(kresearchdata, aes(factor(k3$cluster),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Informational Duration")
+#Explaining clusters by ProductRelated Sessions
+kmeans3plot3<-ggplot(data = kresearchdata,aes(x=ProductRelated,fill=as.factor(k3$cluster)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Product Related")
+#Explaining clusters by ProductRelated Duration
+kmeans3plot4<-ggplot(kresearchdata, aes(factor(k3$cluster),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Product Related Duration")
+grid.arrange(kmeans3plot1, kmeans3plot2, kmeans3plot3, kmeans3plot4, nrow=2, ncol=2)
+```
+
+Similar observations were detected when clusters compared with respect to Informational and Product Related web pages.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+kmeans3plot5<-ggplot(kresearchdata, aes(factor(k3$cluster),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+kmeans3plot6<-ggplot(kresearchdata, aes(factor(k3$cluster),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Exit Rates")
+grid.arrange(kmeans3plot5, kmeans3plot6, nrow=2)
+```
+
+The cluster 2 (least likely to make a purchase) also showed the highest Bounce and Exit rate, while the cluster 3 showed the least, and the cluster 1 was, again, in-between.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(kresearchdata, aes(factor(k3$cluster),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(k3$cluster)))+coord_flip()+ggtitle("Page Values")
+```
+
+The interquartile range of the cluster 1 had the highest Page value, which is in accordance with all the previous observations.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+An interesting observation is discovered among the site-visitors who are least likely to purchase (cluster 2). They visit earlier in the year (February~May) compared to other clusters, while other clusters visit more in the later months of the year (November) when winter holiday is close. It is unclear why early months of the year are popular for the site-visitors in cluster 2. Nevertheless, e-commerce business owners may use this information to come up with promotions to motivate cluster 2 visitors habits to change from not purchasing to purchasing during their visit from February to May.
+
+```{r, echo=FALSE}
+kmeans3plot7<-#Explaining clusters by Operating Systems types
+ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+
+#Explaining clusters by Browser types
+kmeans3plot8<-ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Type")
+
+grid.arrange(kmeans3plot7, kmeans3plot8, nrow=2)
+```
+
+Here, cluster 2 is uniquely represented again in regards to Operating System and Browser type. Cluster 2 seems to prefer using the Operating System and Browser type that is unpopular in other clusters. For the operating system type, it looks like type 2 is the most popular and commonly used. In fact, cluster 2 uses this the least, and instead, uses other Operating System types that are unpopular in other clusters. The same trend is observed in the Browser type as well. It would have been very interesting to find out what those Operating Systems and Browser types were exactly. Perhaps cluster 2 uses an older Operating System and Browser type, such as Windows 98 and Internet Explorer, because site-visitors using an older system are less likely to be adapted to technology, and therefore less likely to make online shopping purchases.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Type")
+```
+
+Traffic type divides the three clusters distinctively. Cluster 1 (most likely to make a purchase) favors Traffic type “3”, cluster 2 (least likely to make a purchase) favors Traffic type “1, 4, and 13”, while the cluster 3 (in-between cluster) shows moderate preference for all those Traffic types. Since cluster 1 is the most likely to make a purchase, perhaps their Traffic types are more relevant to advertisements and promotional emails, while the cluster 2, once again, might prefer unpopular and old Traffic types, such as newspaper and print ads.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+kmeans3plot9<-ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region")
+
+#Explaining clusters by Visitor Types
+kmeans3plot10<-ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(VisitorType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Type") #+facet_wrap(k3$cluster)+ coord_polar("y", start=0)
+
+grid.arrange(kmeans3plot9, kmeans3plot10, nrow=2)
+```
+
+Similar to the previous trends observed, clusters did not differ much in Region.
+
+For visitor type, cluster 2 is most likely to be the New visitor to the website, while cluster 3 is most likely to be the "Other" type in the visitor type. All three clusters are very unlikely to be Returning visitors to the website.
+
+```{r, echo=FALSE}
+#Explaining clusters by Weekend and Weekday visits
+ggplot(data = kresearchdata, mapping = aes(x = k3$cluster, fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend") #+ coord_polar("y", start=0)+facet_wrap(k3$cluster)
+```
+
+The bar plot shows that cluster 2 shops less on weekends in contrast to other two clusters.
+
+The following table shows the k-mean centers for cluster 1, 2, and 3.
+
+```{r, echo=FALSE}
+#Viewing cluster 1
+#subset(kresearchdata,k3$cluster==1)
+#Cluster 1 centers
+k3$centers[1,]
+
+#Viewing cluster 2
+#subset(kresearchdata,k3$cluster==2)
+#Cluster 1 centers
+k3$centers[2,]
+
+#Viewing cluster 3
+#subset(kresearchdata,k3$cluster==3)
+#Cluster 1 centers
+k3$centers[3,]
+```
+
+Next, cluster representations are shown in the following pie charts for cluster 1, 2, and 3, respectively, for k=3 K-means clustering model.
+
+```{r, echo=FALSE}
+pie(colSums(clust_data[k3$cluster==1,]),cex=1, main = "Cluster 1")
+pie(colSums(clust_data[k3$cluster==2,]),cex=1, main = "Cluster 2")
+pie(colSums(clust_data[k3$cluster==3,]),cex=1, main = "Cluster 3")
+```
+
+The pie charts show that cluster 2, which is the cluster least likely to make a purchase, has the most diverse and varied interests. Cluster 1 and 3 pie charts are very similar, but also have some differences. For instance, cluster 1 has bigger interest in Informational pages than cluster 3. Also, cluster 3 seems to show bigger pie chart pieces for other features than cluster 1, which may indicate that cluster 3 has more diverse interest than cluster 1. Overall, it was cluster 2 that had the greatest and the most varied interests out of all three clusters.
+
+Moreover, the following table shows the k-center differences between the clusters.
+
+```{r, echo=FALSE}
+#Differences between clusters
+Differences_kresearch<-data.frame("diff12"=numeric(dim(kresearchdata)[2]-1))
+Differences_kresearch$diff12 <- k3$centers[1,] - k3$centers[2,]
+Differences_kresearch$diff13 <- k3$centers[1,] - k3$centers[3,]
+Differences_kresearch$diff23 <- k3$centers[2,] - k3$centers[3,]
+Differences_kresearch
+```
+
+PAM clustering was repeated for k=3, and the following graph shows how the PAM model divided site-visitors into 3 clusters, where 7,326 site-visitors were in cluster 1, 3,737 site-visitors were in cluster 2, and 1,267 site-visitors were in cluster 3.
+
+```{r, echo=FALSE}
+##K=3 PAM##
+set.seed(329)
+pam.res_k3 <- pam(clust_data, 3) #<---- Using k pam
+#print(pam.res_k3)
+#Visualize PAM clustering
+fviz_cluster(pam.res_k3, data = clust_data, ellipse.type = "convex") + theme_minimal() + ggtitle("PAM Clustering")
+
+#Review of k medoids clustering results for k=3
+pamresearchdata <- cbind(clust_data,pam.res_k3$clustering)
+
+#Breakdown of Clusters
+table(pamresearchdata[,"pam.res_k3$clustering"])
+
+#Explaining clusters by Administrative sessions
+pamk3plot1<-ggplot(data = pamresearchdata,aes(x=Administrative,fill=as.factor(pam.res_k3$clustering)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Administrative")
+#Explaining clusters by Administrative Duration
+pamk3plot2<-ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Administrative Duration")
+grid.arrange(pamk3plot1, pamk3plot2, nrow=2)
+```
+
+Here, cluster 3 visits the Administrative web pages the most frequently, and also spends the most time in those web pages. Cluster 2 visits the second most frequently, and cluster 3 visits the least. Cluster 2 and 3 spends almost the same time in the web pages, where cluster 1 spends a little bit more time than cluster 2. Overall, cluster 3 clearly has the highest number of web page visits, and amount of time spent in those web pages.
+
+```{r, echo=FALSE}
+#Explaining clusters by Informational Sessions
+pamk3plot3<-ggplot(data = pamresearchdata,aes(x=Informational,fill=as.factor(pam.res_k3$clustering)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+pamk3plot4<-ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Informational Duration")
+#Explaining clusters by ProductRelated Sessions
+pamk3plot5<-ggplot(data = pamresearchdata,aes(x=ProductRelated,fill=as.factor(pam.res_k3$clustering)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Product Related")
+#Explaining clusters by ProductRelated Duration
+pamk3plot6<-ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Product Related Duration")
+grid.arrange(pamk3plot3, pamk3plot4, pamk3plot5, pamk3plot6, nrow=2, ncol=2)
+```
+
+The exact same behaviour patterns were observed for the Informational and Product Related pages, where cluster 3 visited and spent time the most in the related sites, and cluster 1 visited and spent time the least in those sites. It is interesting to note that the three clusters behaved the same with respect to the Informational web pages, and totally different on Product Related pages.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+pamk3plot7<-ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+pamk3plot8<-ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Exit Rates")
+grid.arrange(pamk3plot7, pamk3plot8, nrow=2)
+```
+
+Cluster 3 had the lowest Bounce and Exit rate, while cluster 1 had the highest. At this point, it can be speculated that cluster 3 is likely to make a purchase, and cluster 1 is the least likely to make a purchase, while cluster 2 is in-between.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(pamresearchdata, aes(factor(pam.res_k3$clustering),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(pam.res_k3$clustering)))+coord_flip()+ggtitle("Page Values")
+```
+
+Cluster 1 had the lowest Page value, which is consistent with the observation that it is the least likely to make a purchase. However, it's interesting to mention that both clusters 2 and 3 had similar Page values.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+Cluster 3 is most likely to shop near the end of the year, especially in November, while cluster 1 is more likely than other clusters to shop earlier in the year, specifically in February. Cluster 2 was in-between. It is worth noting that July~August is an unpopular time period for shopping for all three clusters.
+
+```{r, echo=FALSE}
+#Explaining clusters by Operating Systems types
+pamk3plot11<-ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+#Explaining clusters by Browser types
+pamk3plot12<-ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Type")
+grid.arrange(pamk3plot11, pamk3plot12, nrow=2)
+```
+
+Operating System type 2 and Browser type 2 are the most widely used and popular ones. This observation was derived in previous models as well. Cluster 3 is most likely to use that popular Operating System and Browser type, while cluster 1 is more likely than other clusters to use unpopular Operating System and Browser types.
+
+```{r, echo=FALSE}
+#Explaining clusters by Visitor Types
+ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(VisitorType)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Type") #+facet_wrap(pam.res_k3$clustering)+ coord_polar("y", start=0)
+```
+
+While all three clusters were most likely to be New visitors and least likely to be Returning visitors to the website, cluster 3 is the more likely than other clusters to be a New visitor type. Meanwhile, cluster 1 is more likely than other clusters to be the "Other" visitor type. This trend was replicated in previous models as well.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Type")
+```
+
+Traffic type 2 is the most widely used and popular Traffic type that motivates online shoppers to arrive at the shopping website. Cluster 3, out of all three, is the most likely to use this popular Traffic type. On the other hand, cluster 1 is the least likely to use this popular Traffic type, and most likely to use other Traffic types. Cluster 2 was in-between. This observation was also revealed in previous models as well.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+pamk3plot13<-ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region")
+#Explaining clusters by Weekend and Weekday visits
+pamk3plot16<-ggplot(data = pamresearchdata, mapping = aes(x = pam.res_k3$clustering, fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend") #+ coord_polar("y", start=0)+facet_wrap(pam.res_k3$clustering)
+grid.arrange(pamk3plot13, pamk3plot16, nrow=2)
+```
+
+Similar to observations made in previous models, distributions of region and weekend categories are the same in all three clusters.
+
+The following pie charts show cluster demarcation for the PAM model, k=3.
+
+```{r, echo=FALSE}
+pie(colSums(clust_data[pam.res_k3$clustering==1,]),cex=1, main = "Cluster 1")
+pie(colSums(clust_data[pam.res_k3$clustering==2,]),cex=1, main = "Cluster 2")
+pie(colSums(clust_data[pam.res_k3$clustering==3,]),cex=1, main = "Cluster 3")
+```
+
+The pie charts show that the cluster least likely to make a purchase (cluster 1) has the most diverse interests, while the cluster most likely to make a purchase (cluster 3) has the least diverse interests. This trend was also observed in the PAM k=2 model before. Cluster 1 has the greatest interest in spending time in the web pages related to administration, such as account setup. Cluster 2 also has an interest in the Administrative pages as well, but not as much as cluster 3. Cluster 1 had the least interest in the Administrative pages among the three clusters. In summary, cluster 1 has the most diverse and varied interest, represented by many bigger pieces in the pie chart, cluster 2 has less diverse interest, and cluster 3 has the least one.
+
+The following shows the medoids for cluster 1, 2, and 3 for the PAM model, respectively, as well as the medoids difference between the clusters.
+
+```{r, echo=FALSE}
+#Viewing cluster 1
+#subset(pamresearchdata,pam.res_k3$clustering==1)
+#Cluster 1 medians
+pam.res_k3$medoids[1,]
+
+#Viewing cluster 2
+#subset(pamresearchdata,pam.res_k3$clustering==2)
+#Cluster 1 medians
+pam.res_k3$medoids[2,]
+
+#Viewing cluster 3
+#subset(pamresearchdata,pam.res_k3$clustering==3)
+#Cluster 1 medians
+pam.res_k3$medoids[3,]
+
+#Differences between clusters
+Differences_pamresearch<-data.frame("diff12"=numeric(dim(pamresearchdata)[2]-1))
+Differences_pamresearch$diff12 <- pam.res_k3$medoids[1,] - pam.res_k3$medoids[2,]
+Differences_pamresearch$diff13 <- pam.res_k3$medoids[1,] - pam.res_k3$medoids[3,]
+Differences_pamresearch$diff23 <- pam.res_k3$medoids[2,] - pam.res_k3$medoids[3,]
+Differences_pamresearch
+```
+
+Finally, the hierarchical clustering model was used once more for k=3 user research. The following graph shows the model’s cluster plot. The model had 6,946 site-visitors in cluster 1, 4,638 site-visitors in cluster 2, and 746 site-visitors in cluster 3.
+
+```{r, echo=FALSE}
+set.seed(329)
+#K=3 Hierarchical#
+groups_k3 <- cutree(h_clust,k=3) #<----- Using hierarchical clustering
+
+#Review of hierarchical clustering results for k=3
+fviz_cluster(list(data = clust_data, cluster = groups_k3))
+hresearchdata <- cbind(clust_data,groups_k3)
+#Breakdown of Clusters
+table(hresearchdata[,"groups_k3"])
+
+#Explaining clusters by Administrative sessions
+hclustk3plot1<-ggplot(data = hresearchdata,aes(x=Administrative,fill=as.factor(groups_k3)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Administrative")
+#Explaining clusters by Administrative Duration
+hclustk3plot2<-ggplot(hresearchdata, aes(factor(groups_k3),y=Administrative_Duration)) +
+  geom_violin(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Administrative Duration")
+grid.arrange(hclustk3plot1, hclustk3plot2, nrow=2)
+
+```
+
+Observations made in hierarchical clustering were similar to the previous observations derived in K-means and PAM. For instance, the cluster that was most likely to make a purchase (cluster 3 in this case), visited the Administrative websites the most, and also spent the most time in those websites. Cluster 1, which is the cluster least likely to make a purchase, visited these websites the least and also spent the least amount of time, while cluster 2 was in-between.
+
+```{r, echo=FALSE}
+#Explaining clusters by Informational Sessions
+hclustk3plot3<-ggplot(data = hresearchdata,aes(x=Informational,fill=as.factor(groups_k3)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Informational")
+#Explaining clusters by Informational Duration
+hclustk3plot4<-ggplot(hresearchdata, aes(factor(groups_k3),y=Informational_Duration)) +
+  geom_violin(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Informational Duration")
+
+#Explaining clusters by ProductRelated Sessions
+hclustk3plot5<-ggplot(data = hresearchdata,aes(x=ProductRelated,fill=as.factor(groups_k3)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Product Related")
+#Explaining clusters by ProductRelated Duration
+hclustk3plot6<-ggplot(hresearchdata, aes(factor(groups_k3),y=ProductRelated_Duration)) +
+  geom_violin(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Product Related Duration")
+grid.arrange(hclustk3plot3, hclustk3plot4, hclustk3plot5, hclustk3plot6, nrow=2, ncol=2)
+```
+
+The same behaviour pattern was revealed for Informational and Product Related web pages as well.
+
+```{r, echo=FALSE}
+#Explaining clusters by Bounce Rates
+hclustk3plot7<-ggplot(hresearchdata, aes(factor(groups_k3),y=BounceRates)) +
+  geom_boxplot(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Bounce Rates")
+#Explaining clusters by Exit Rates
+hclustk3plot8<-ggplot(hresearchdata, aes(factor(groups_k3),y=ExitRates)) +
+  geom_boxplot(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Exit Rates")
+grid.arrange(hclustk3plot7, hclustk3plot8, nrow=2)
+```
+
+The cluster 3 had the lowest Bounce and Exit rate, cluster 1 had the highest, while cluster 2 was in-between. This behaviour pattern was observed in the past models as well.
+
+```{r, echo=FALSE}
+#Explaining clusters by Page Values
+ggplot(hresearchdata, aes(factor(groups_k3),y=PageValues)) +
+  geom_boxplot(aes(fill=factor(groups_k3)))+coord_flip()+ggtitle("Page Values")
+```
+
+In all past observations, the cluster that was most likely going to make a purchase also had the highest Page value. However, the Hierarchical clustering with k=3 model performs differently in this case, because the cluster that was in-between has the highest Page value.
+
+```{r, echo=FALSE}
+#Explaining clusters by Months visits
+ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(Month))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Month")
+```
+
+This plot shows that cluster 3 is most likely to shop around November, and cluster 1 is most likely to shop in the earlier months of the year. Cluster 2 shops more or less consistently throughout the year.
+
+```{r, echo=FALSE}
+#Explaining clusters by Operating Systems types
+hclustk3plot11<-ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(OperatingSystems))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Operating Systems")
+#Explaining clusters by Browser types
+hclustk3plot12<-ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(Browser))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Browser Type")
+grid.arrange(hclustk3plot11, hclustk3plot12, nrow=2)
+```
+
+This plot shows the Operating System and Browser type used by three clusters. It seems that Operating System type 2 and Browser type 2 are the most utilized and popular across all clusters. Out of all three clusters, cluster 3 (most likely to make a purchase) is most likely to use a widely popular Operating System and Browser type, while cluster 1 is most likely to use an unpopular Operating System and Browser type.
+
+```{r, echo=FALSE}
+#Explaining clusters by Visitor Types
+ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(VisitorType)))+geom_bar(position="fill")+ylab("Frequency")+ggtitle("Visitor Type") #+facet_wrap(groups_k3)+ coord_polar("y", start=0)
+```
+
+All three clusters are unlikely to be a Returning visitor to the website. However, cluster 3 is the most likely to be a New visitor to the website, while cluster 1 is the most likely to be "Other" visitor type. This trend was demonstrated in previous models as well.
+
+```{r, echo=FALSE}
+#Explaining clusters by Traffic Types
+ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(TrafficType))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Traffic Type")
+```
+
+In all three clusters, Traffic type 3 is the most utilized and popular. Cluster 3 is most likely to use this popular Traffic type, while cluster 1 is likely to use more unpopular Traffic types to arrive at shopping websites.
+
+```{r, echo=FALSE}
+#Explaining clusters by Region types
+hclustk3plot13<-ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(Region))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Region")
+#Explaining clusters by Weekend and Weekday visits
+hclustk3plot16<-ggplot(data = hresearchdata, mapping = aes(x = groups_k3, fill = as.factor(Weekend))) +geom_bar(position="fill")+ylab("Frequency")+ggtitle("Weekend") #+ coord_polar("y", start=0)+facet_wrap(groups_k3)
+grid.arrange(hclustk3plot13, hclustk3plot16, nrow=2)
+```
+
+Clusters show no difference when it comes to Region and Weekend features, which is a similar result from previous models as well.
+
+
+### Model Evaluation - Clustering, k=3
+
+The same metrics were used again to compare which clustering model performed better in clustering for k=3. Silhouette score and a number of misplaced observations were utilized to identify the best clustering algorithm.
+
+The following list shows how three different clustering models performed:
+
+```{r, echo=FALSE}
+set.seed(329)
+#Validation with silhouette plot
+k3_sil<-silhouette(k3$cluster,dist(clust_data_sd)) #this code runs at least 5 minutes
+fviz_silhouette(k3_sil)
+#number of misplaced observations(they are in the wrong cluster)
+k3_misplaced=length(k3_sil[k3_sil<0])
+```
+
+K-means
+
+* k=3 Silhouette score: 0.25
+* k=3 misplaced observations: 982
+
+```{r, echo=FALSE}
+set.seed(329)
+#Validation with silhouette plot
+fviz_silhouette(pam.res_k3)
+#number of misplaced observations(they are in the wrong cluster)
+pam3_misplaced=length(pam.res_k3$silinfo$widths[pam.res_k3$silinfo$widths<0])
+```
+
+PAM
+
+* k=3 Silhouette score: 0.57
+* k=3 misplaced observations: 883
+
+```{r, echo=FALSE}
+set.seed(12345)
+#Validation with silhouette plot
+hc3_sil<-silhouette(groups_k3,dist(clust_data))
+fviz_silhouette(hc3_sil)
+#number of misplaced observations(they are in the wrong cluster)
+hc3_misplaced=length(hc3_sil[hc3_sil<0])
+```
+
+Hierarchical
+
+* k=3 Silhouette score: 0.55
+* k=3 misplaced observations: 1,264
+
+These metrics were also made into a table and a visual plot.
+
+```{r, echo=FALSE}
+kmeans <- c(0.25,982)
+PAM <- c(0.57,883)
+HClust <- c(0.55,1264)
+metric_k3 <- data.frame(kmeans,PAM,HClust)
+
+rownames(metric_k3) <- c("Silhouette score","k=3 misplaced observations")
+
+metric_k3
+
+metrics_k3_clustering<-metric_k3
+
+#scaling silhouette score, so it shows on the same plot as misplacement
+metrics_k3_clustering["k=3 misplaced observations","kmeans"]=0.982 #note: scaled
+metrics_k3_clustering["k=3 misplaced observations","PAM"]=0.883 #note: scaled
+metrics_k3_clustering["k=3 misplaced observations","HClust"]=1.264 #note: scaled
+
+metrics_k3_clustering[ "Metric" ] <- rownames(metrics_k3_clustering)
+df.moltenk3clust <- melt( metrics_k3_clustering, id.vars="Metric", value.name="Values", variable.name="Models")
+ggplot(df.moltenk3clust, aes(fill=Models, y=Values, x=Metric)) +
+  geom_bar(position="dodge", stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+It seems that the PAM model again performed the best in Silhouette score, and also misplaced the least number of observations.
+
+```{r}
+#The highest average silhouette
+best_sil=max(mean(k3_sil[,3]),pam.res_k3$silinfo$avg.width,mean(hc3_sil[,3]))
+#The name of the best clustering method for customer base research
+if (mean(k3_sil[,3])==best_sil) {"kmeans"} else if (pam.res_k3$silinfo$avg.width==best_sil) 
+  {"pam"} else {"Hierarchical"}
+```
+
+## PCA
+
+```{r, echo=FALSE}
+########PCA##########
+my_pca <- prcomp(clust_data, scale. = TRUE)
+plot(my_pca,ylim=c(1,5))
+```
+
+Principal component analysis (PCA) is used to extract the important information from a multivariate data table and to express this information as a set of few new variables called principal components. These new variables correspond to a linear combination of the originals. The goal of PCA is to identify directions (or principal components) along which the variation in the data is maximal. 
+
+PCA was performed, and produced the above graph, which shows the PCA number in the x-axis, and the variation representation in the y-axis.
+
+The graph shows that PCA1 and PCA2 represent the majority of data variation.
+
+```{r, echo=FALSE}
+pcmp <- princomp(clust_data)
+pred_pc <- predict(pcmp, newdata=clust_data)[,1:2]
+pca_comp=cbind(as.data.table(pred_pc),cluster = as.factor(k2$cluster)) 
+ggplot(pca_comp,aes(Comp.1,Comp.2))+
+  geom_point(aes(color = cluster),size=3)
+```
+
+PCA1 and PCA2 were plotted on the graph as above
+
+# Discussion
+
+Both classification (predictive) and clustering models were used in this project to assess how well the models can predict the purchase status of site-visitors. Within the classification models, the k-NN model performed the best, and random forest a close second. Overall, all of the classification models performed well in predicting online visitors’ purchase, while clustering models did not perform well in the same evaluation metrics. Therefore, classification models, specifically the k-NN model, would be best suited for predicting the purchase status of site-visitors.
+
+From the feature importance results, the best recommendations for e-commerce business owners would be to focus on three important features: Page Value, Bounce Rate, and Exit Rate. 
+The shopping pages should be designed to capture site-visitors’ interest to increase their stay, and thereby decreasing the Bounce and Exit Rate. Page value can be increased either by increasing the sale price of an item, or by decreasing the web page traffic required to arrive at the target/ transaction website (Google, 2020c).
+
+The clustering models were used as a research method to better understand the user base. From the clusters, it was observed that a meaningful way to segment the users was by diving either into 2 or 3 clusters.
+
+Dividing into 2 clusters showed one cluster that had the following set of behaviours: quick exit and abandonment (Exit and Bounce rate) from the website, less likely to be affected by special holidays to make purchases, and spends less time setting up their account information, looking up product related pages, or reading upon the company’s information. Also, this particular cluster arrived at the shopping website through a different traffic compared to another cluster. Although the traffic types were not defined in the Sakar et al paper, it can be assumed that the traffic type of this cluster would be irrelevant to the company’s advertisements or promotions. On the other hand, the other cluster displayed these behaviours in the opposite direction: more likely to spend time setting up their account, looking at the company’s information and product pages, more likely to make purchase far before and after special days/ holidays, and had a different traffic type, which is likely to be relevant to the company’s advertisements and promotions. Overall, it seems that the second cluster is representative of those who are likely to make a purchase. Another interesting insight was that the first cluster used a different browser and computer operating system than the second cluster. Perhaps this might indicate the generation gaps between the clusters, since older site-visitors are likely to use certain types of computer operating system and browser than younger site-visitors (Agarwal, 2018; Bursztein, 2012; Thubron, 2019). Moreover, location of visitors (region) had no effect on the likelihood of purchase, which supports the notion that the online shopping in the age of Internet-of-Things (IoT) is unaffected by locations and regions like the brick-and-mortar stores.
+
+Dividing the user base into 3 clusters mainly produces the similar insights as dividing into 2 clusters. However, it further refines to create following levels of clusters: most likely to make a purchase, less likely to make a purchase, and the least likely to make a purchase. The cluster that spends the most time in setting up accounts, and looking at the product and company related pages were the most likely to purchase out of the three clusters. This cluster was also more likely to shop far before and after special days/ holidays. Perhaps this cluster represents the ideal type of users that e-commerce business owners can target to send more advertisements and promotional materials, while the other 2 clusters are the less ideal type of users from the business owners’ perspective.
+
+## Deployment
+
+A deployment interface is created and launched in this shinyapp.io: https://lily-ye.shinyapps.io/DeploymentFinalProject/. The objective of the deployment would be to inform the e-commerce business owners of their website’s metrics (e.g. Bounce and Exit rates), as well as the prediction of their website visitor’s likelihood of making a purchase.
+
+The website’s Bounce and Exit rate metrics would inform the business owners on how well their websites are designed to influence the visitor’s stay (e.g. designing a website with a great slogan or pictures to capture their interests to stay longer). The deployment interface allows it’s user to observe metrics and its changes over any time period via its sidebar’s date range selection. With this interface, business owners can observe the effects of their operational and business decisions on the website’s metrics. For instance, if the business owner changed the layout of the company’s shopping website in January 2020, they can observe whether this might increase or decrease the Bounce and Exit rates.
+
+Moreover, using the k-NN model that performed the best among all predictive models, the second tab in the deployment interface has the list of website visitors, and the prediction output of whether they are likely to make a purchase. Then, the business owners can see these prediction outputs, and can use the information for targeted marketing and promotions to further encourage those target users to make purchases.
+
+Overall, this interface provides business owners to observe website metrics, purchase predictions of site-visitors and thorough understanding of their user base. With this information, business owners are better equipped to improve shopping websites and to identify target users easily, which can ultimately contribute towards increasing sales and revenue.
+
+# Conclusion
+
+Within the classification models, k-NN had the best overall performance in the evaluation metrics, while PAM performed the best within the clustering models. However, clustering models overall performed worse than classification in predicting site-visitors’ purchase, and therefore, k-NN model is the ideal machine learning model for prediction.
+
+Clustering was an excellent research method to look further into the trends and behaviours of the site-visitor base. k=2 and k=3 were both used in the clustering models, and all clustering models divided clusters in a similar way: a cluster that is more likely to make a purchase, and a cluster that is less likely to make a purchase. The two clusters had a different set of behaviours and trends, and this result was consistently replicated in all clustering models.
+
+# References
+
+Agarwal, D. (2018). What web browser do old site-visitors use? Quora. https://www.quora.com/What-web-browser-do-old-site-visitors-use
+
+Bursztein, E. (2012). Survey: Internet explorer users are older, chrome seduces youth. Elie Bursztein’s Site. https://www.elie.net/blog/web/survey-internet-explorer-users-are-older-chrome-seduces-youth
+
+Dabbura, I. (2018, September 17). K-means Clustering: Algorithm, Applications, Evaluation Methods, and Drawbacks. Retrieved May 8, 2020, from https://towardsdatascience.com/k-means-clustering-algorithm-applications-evaluation-methods-and-drawbacks-aa03e644b48a
+
+Franklin, J. S. (2019, November 23). Elbow method of K-means clustering using Python - Analytics Vidhya - Medium. Retrieved May 8, 2020, from https://medium.com/analytics-vidhya/elbow-method-of-k-means-clustering-algorithm-a0c916adc540
+
+Google Analytics. (2020a). Bounce rate—Analytics Help. Google. https://support.google.com/analytics/answer/1009409?hl=en
+
+Google Analytics. (2020b). Exit Rate vs. Bounce Rate—Analytics Help. Google. https://support.google.com/analytics/answer/2525491?hl=en&ref_topic=6156780
+
+Google Analytics. (2020c). How Page Value is calculated—Analytics Help. Google. https://support.google.com/analytics/answer/2695658?hl=en
+
+Kassambara, A. (n.d.). K-Medoids in R: Algorithm and Practical Examples - Datanovia. Retrieved May 8, 2020, from https://www.datanovia.com/en/lessons/k-medoids-in-r-algorithm-and-practical-examples/#pam-algorithm
+
+Kassambara, A. (n.d.) (2017, September 23). PCA - Principal Component Analysis Essentials - STHDA. Retrieved May 8, 2020, from http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#pca-data-format
+
+Kilitcioglu, D. (2018, October 26). Hierarchical Clustering and its Applications - Towards Data Science. Retrieved May 8, 2020, from https://towardsdatascience.com/hierarchical-clustering-and-its-applications-41c1ad4441a6
+ 
+Koks, P. (March 10, 2020). How Page Value in Google Analytics Can Improve Your Insights. Retrieved from https://online-metrics.com/page-value/
+
+Liu, Y., Li, Z., Xiong, H., Gao, X., & Wu, J. (2010). Understanding of Internal Clustering Validation Measures. https://doi.org/10.1109/ICDM.2010.35
+
+Molnar, C. (2020.). 4.4 Decision Tree | Interpretable Machine Learning. Retrieved April 24, 2020, from https://christophm.github.io/interpretable-ml-book/tree.html
+
+R Documentation. (n.d.-a). Rand.index function | R Documentation. R Documentation. Retrieved May 12, 2020, from https://www.rdocumentation.org/packages/fossil/versions/0.3.7/topics/rand.index
+
+R Documentation. (n.d.-b). ROSE function. Retrieved May 8, 2020, from https://www.rdocumentation.org/packages/ROSE/versions/0.0-3/topics/ROSE
+
+Read Random Forest-Random Forest (4 implementation steps + 10 advantages and disadvantages). (n.d.). Retrieved April 24, 2020, from https://easyai.tech/en/ai-definition/random-forest/
+
+Sakar, C. O., Polat, S. O., Katircioglu, M., & Kastro, Y. (2019). Real-time prediction of online shoppers’ purchasing intention using multilayer perceptron and LSTM recurrent neural networks. Neural Computing and Applications, 31(10), 6893–6908. https://doi.org/10.1007/s00521-018-3523-0
+
+Sheldon, P., Wigder, Z. D., Wray, J., Varon, L., & Katz, R. (October 14, 2014). Canadian Online Retail Forecast, 2014 To 2019. Retrieved May 7, 2020, from https://www.forrester.com/report/Canadian+Online+Retail+Forecast+2014+To+2019/-/E-RES115497
+
+Thubron, R. (2019). 71% of students own or would prefer a Mac, claims survey. TechSpot. https://www.techspot.com/news/80220-71-students-own-or-would-prefer-mac-claims.html
+
+Trevino, A. (2016, December 6). Introduction to K-means Clustering | Oracle Data Science. Retrieved May 7, 2020, from https://blogs.oracle.com/datascience/introduction-to-k-means-clustering
+
+Wikipedia. (2020). Rand index. In Wikipedia. https://en.wikipedia.org/w/index.php?title=Rand_index&oldid=954911959
+
+Xiaoqiang. (2019). What is the K-nearest neighbors|KNN? - Product Manager’s Artificial Intelligence Learning Library. Easy AI. https://easyai.tech/en/ai-definition/k-nearest-neighbors/
